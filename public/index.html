@@ -1,0 +1,2383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b1220" />
+  <title>ArtiFTP — Owner UI</title>
+  <style>
+    :root {
+      --ink-950: #070b14;
+      --ink-900: #0b1220;
+      --ink-850: #101929;
+      --ink-800: #152033;
+      --ink-700: #1c2a42;
+      --ink-600: #2a3b58;
+      --ink-500: #3d5275;
+      --slate-400: #8b9bb8;
+      --slate-300: #b0bdd4;
+      --slate-200: #d4dcec;
+      --slate-100: #eef2f9;
+      --white: #f7f9fc;
+      --emerald-400: #34d399;
+      --emerald-500: #10b981;
+      --emerald-600: #059669;
+      --emerald-glow: rgba(16, 185, 129, 0.22);
+      --amber-400: #fbbf24;
+      --rose-400: #fb7185;
+      --rose-500: #f43f5e;
+      --blue-400: #60a5fa;
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --radius-xl: 22px;
+      --shadow-soft: 0 4px 24px rgba(0, 0, 0, 0.35);
+      --shadow-card: 0 1px 0 rgba(255,255,255,0.04), 0 8px 32px rgba(0,0,0,0.4);
+      --font: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+      --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+      --safe-b: env(safe-area-inset-bottom, 0px);
+      --nav-h: 64px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { height: 100%; }
+
+    body {
+      font-family: var(--font);
+      background: var(--ink-950);
+      color: var(--slate-200);
+      min-height: 100%;
+      line-height: 1.45;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    /* Demo ribbon */
+    .demo-ribbon {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: linear-gradient(90deg, #1a2336, #12241f 50%, #1a2336);
+      border-bottom: 1px solid rgba(16, 185, 129, 0.25);
+      color: var(--slate-300);
+      font-size: 11px;
+      letter-spacing: 0.04em;
+      text-align: center;
+      padding: 7px 12px;
+      font-weight: 500;
+    }
+    .demo-ribbon strong { color: var(--emerald-400); font-weight: 600; }
+
+    /* App shell */
+    .app {
+      max-width: 480px;
+      margin: 0 auto;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      background:
+        radial-gradient(ellipse 80% 50% at 50% -10%, rgba(16,185,129,0.08), transparent 60%),
+        var(--ink-900);
+    }
+
+    @media (min-width: 640px) {
+      body { padding: 24px 16px 40px; background: #05080f; }
+      .app {
+        border-radius: 28px;
+        border: 1px solid var(--ink-700);
+        box-shadow: var(--shadow-soft), 0 0 0 1px rgba(255,255,255,0.03);
+        overflow: hidden;
+        min-height: calc(100dvh - 64px);
+        max-width: 420px;
+      }
+      .demo-ribbon { border-radius: 0; }
+    }
+
+    /* Header */
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px 10px;
+      gap: 12px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+    .brand-mark {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background: linear-gradient(145deg, var(--emerald-500), #047857);
+      display: grid;
+      place-items: center;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.1), 0 4px 12px var(--emerald-glow);
+      flex-shrink: 0;
+    }
+    .brand-mark svg { width: 18px; height: 18px; color: white; }
+    .brand-text { min-width: 0; }
+    .brand-name {
+      font-size: 15px;
+      font-weight: 650;
+      color: var(--white);
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+    }
+    .brand-sub {
+      font-size: 11px;
+      color: var(--slate-400);
+      letter-spacing: 0.02em;
+    }
+    .top-actions { display: flex; gap: 6px; align-items: center; }
+    .icon-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      border: 1px solid var(--ink-600);
+      background: var(--ink-850);
+      color: var(--slate-300);
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .icon-btn:hover, .icon-btn:focus-visible {
+      background: var(--ink-700);
+      border-color: var(--ink-500);
+      color: var(--white);
+      outline: none;
+    }
+    .icon-btn svg { width: 18px; height: 18px; }
+
+    /* Screens */
+    .screens { flex: 1; position: relative; padding-bottom: calc(var(--nav-h) + var(--safe-b) + 8px); }
+    .screen {
+      display: none;
+      padding: 4px 16px 20px;
+      animation: fadeIn 0.28s ease;
+    }
+    .screen.active { display: block; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @supports (view-transition-name: none) {
+      ::view-transition-old(root), ::view-transition-new(root) {
+        animation-duration: 0.25s;
+      }
+    }
+
+    .screen-title {
+      font-size: 22px;
+      font-weight: 650;
+      color: var(--white);
+      letter-spacing: -0.03em;
+      margin: 4px 0 4px;
+    }
+    .screen-desc {
+      font-size: 13px;
+      color: var(--slate-400);
+      margin-bottom: 18px;
+    }
+
+    /* Cards */
+    .card {
+      background: var(--ink-850);
+      border: 1px solid var(--ink-700);
+      border-radius: var(--radius-lg);
+      padding: 14px 14px;
+      margin-bottom: 10px;
+      box-shadow: var(--shadow-card);
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .card.interactive { cursor: pointer; }
+    .card.interactive:hover {
+      border-color: var(--ink-500);
+      background: var(--ink-800);
+    }
+    .card.interactive:focus-visible {
+      outline: 2px solid var(--emerald-500);
+      outline-offset: 2px;
+    }
+
+    .site-row {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+    .site-avatar {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      background: var(--ink-700);
+      display: grid;
+      place-items: center;
+      font-weight: 700;
+      font-size: 13px;
+      color: var(--emerald-400);
+      border: 1px solid var(--ink-600);
+      flex-shrink: 0;
+    }
+    .site-avatar.generic { color: var(--blue-400); }
+    .site-meta { flex: 1; min-width: 0; }
+    .site-actions {
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      align-items: stretch;
+    }
+    .site-edit,
+    .site-delete {
+      flex-shrink: 0;
+      font-size: 11px;
+      padding: 5px 8px;
+      border-radius: 8px;
+      gap: 4px;
+      width: 100%;
+      justify-content: center;
+    }
+    .site-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--white);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .site-host {
+      font-size: 12px;
+      color: var(--slate-400);
+      font-family: var(--mono);
+      margin-top: 2px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .site-foot {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--ink-700);
+      font-size: 11px;
+      color: var(--slate-400);
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    /* Badges / chips */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid transparent;
+    }
+    .badge::before {
+      content: "";
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+    .badge-live {
+      color: var(--emerald-400);
+      background: rgba(16,185,129,0.12);
+      border-color: rgba(16,185,129,0.25);
+    }
+    .badge-idle {
+      color: var(--slate-400);
+      background: rgba(139,155,184,0.1);
+      border-color: rgba(139,155,184,0.2);
+    }
+    .badge-pending {
+      color: var(--amber-400);
+      background: rgba(251,191,36,0.12);
+      border-color: rgba(251,191,36,0.28);
+    }
+    .badge-rw {
+      color: var(--emerald-400);
+      background: rgba(16,185,129,0.1);
+      border-color: rgba(16,185,129,0.2);
+    }
+    .badge-ro {
+      color: var(--blue-400);
+      background: rgba(96,165,250,0.1);
+      border-color: rgba(96,165,250,0.22);
+    }
+    .dogfood {
+      font-size: 10px;
+      color: var(--slate-400);
+      background: var(--ink-700);
+      border: 1px solid var(--ink-600);
+      padding: 2px 7px;
+      border-radius: 999px;
+      font-weight: 500;
+      text-transform: none;
+      letter-spacing: 0;
+    }
+    .dogfood::before { display: none; }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      border-radius: 12px;
+      border: 1px solid transparent;
+      padding: 11px 16px;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, transform 0.1s, box-shadow 0.15s;
+      user-select: none;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn:focus-visible { outline: 2px solid var(--emerald-400); outline-offset: 2px; }
+    .btn-primary {
+      background: linear-gradient(180deg, var(--emerald-500), var(--emerald-600));
+      color: white;
+      box-shadow: 0 1px 0 rgba(255,255,255,0.15) inset, 0 4px 14px var(--emerald-glow);
+    }
+    .btn-primary:hover { filter: brightness(1.06); }
+    .btn-ghost {
+      background: var(--ink-800);
+      border-color: var(--ink-600);
+      color: var(--slate-200);
+    }
+    .btn-ghost:hover { background: var(--ink-700); color: var(--white); }
+    .btn-danger {
+      background: rgba(244,63,94,0.12);
+      border-color: rgba(244,63,94,0.35);
+      color: var(--rose-400);
+    }
+    .btn-danger:hover { background: rgba(244,63,94,0.2); }
+    .btn-deny {
+      background: var(--ink-800);
+      border-color: var(--ink-600);
+      color: var(--slate-200);
+    }
+    .btn-block { width: 100%; }
+    .btn-row { display: flex; gap: 10px; margin-top: 14px; }
+    .btn-row .btn { flex: 1; }
+
+    .section-label {
+      font-size: 11px;
+      font-weight: 650;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--slate-400);
+      margin: 18px 0 8px;
+    }
+
+    /* Policy form */
+    .field-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--slate-300);
+      margin-bottom: 6px;
+      display: block;
+    }
+    .path-picker {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--ink-900);
+      border: 1px solid var(--ink-600);
+      border-radius: var(--radius-md);
+      padding: 10px 12px;
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--emerald-400);
+    }
+    .path-picker .folder-icon { color: var(--slate-400); flex-shrink: 0; }
+    .path-crumbs { display: flex; flex-wrap: wrap; gap: 4px; flex: 1; min-width: 0; }
+    .crumb {
+      color: var(--slate-400);
+      cursor: pointer;
+    }
+    .crumb:hover { color: var(--white); }
+    .crumb.current { color: var(--emerald-400); }
+    .crumb-sep { color: var(--ink-500); pointer-events: none; }
+
+    .path-tree {
+      margin-top: 8px;
+      background: var(--ink-900);
+      border: 1px solid var(--ink-700);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+    .path-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 12px;
+      font-size: 13px;
+      color: var(--slate-300);
+      border-bottom: 1px solid var(--ink-800);
+      cursor: pointer;
+      font-family: var(--mono);
+    }
+    .path-item:last-child { border-bottom: none; }
+    .path-item:hover { background: var(--ink-800); color: var(--white); }
+    .path-item.selected {
+      background: rgba(16,185,129,0.1);
+      color: var(--emerald-400);
+      border-left: 2px solid var(--emerald-500);
+      padding-left: 10px;
+    }
+    .path-item svg { width: 14px; height: 14px; opacity: 0.7; flex-shrink: 0; }
+    .path-add {
+      margin-top: 10px;
+      display: grid;
+      gap: 8px;
+    }
+    .path-add-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--slate-400);
+    }
+    .path-add-row {
+      display: flex;
+      gap: 8px;
+      align-items: stretch;
+    }
+    .path-add-row input {
+      flex: 1;
+      min-width: 0;
+      background: var(--ink-800);
+      border: 1px solid var(--ink-500);
+      border-radius: 10px;
+      color: var(--white);
+      font: inherit;
+      font-size: 13px;
+      padding: 10px 12px;
+      outline: none;
+    }
+    .path-add-row input:focus {
+      border-color: var(--emerald-400);
+      box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+    }
+    .path-add-row input::placeholder { color: var(--slate-400); opacity: 0.8; }
+    .path-add-hint {
+      font-size: 11px;
+      color: var(--slate-400);
+      line-height: 1.4;
+    }
+    .btn-add-path {
+      flex-shrink: 0;
+      border: 0;
+      border-radius: 10px;
+      background: var(--ink-600);
+      color: var(--white);
+      font: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 0 14px;
+      cursor: pointer;
+    }
+    .btn-add-path:hover { background: var(--emerald-500); }
+
+    .seg {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .seg-opt {
+      padding: 12px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--ink-600);
+      background: var(--ink-900);
+      cursor: pointer;
+      text-align: left;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .seg-opt:hover { border-color: var(--ink-500); }
+    .seg-opt.selected {
+      border-color: var(--emerald-500);
+      background: rgba(16,185,129,0.1);
+      box-shadow: 0 0 0 1px rgba(16,185,129,0.2);
+    }
+    .seg-opt .opt-title {
+      font-size: 13px;
+      font-weight: 650;
+      color: var(--white);
+      margin-bottom: 2px;
+    }
+    .seg-opt .opt-desc { font-size: 11px; color: var(--slate-400); }
+
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .chip {
+      padding: 8px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--ink-600);
+      background: var(--ink-900);
+      color: var(--slate-300);
+      font-size: 13px;
+      font-weight: 550;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: inherit;
+    }
+    .chip:hover { border-color: var(--ink-500); color: var(--white); }
+    .chip.selected {
+      background: rgba(16,185,129,0.15);
+      border-color: var(--emerald-500);
+      color: var(--emerald-400);
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: calc(var(--nav-h) + var(--safe-b) + 20px);
+      transform: translateX(-50%) translateY(20px);
+      background: var(--ink-800);
+      border: 1px solid var(--emerald-600);
+      color: var(--white);
+      padding: 10px 16px;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 550;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s, transform 0.25s;
+      z-index: 200;
+      box-shadow: var(--shadow-soft);
+      max-width: calc(100% - 32px);
+      text-align: center;
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* Legacy push frame (unused; magic-link approve is primary) */
+    .phone-frame {
+      margin: 8px auto 0;
+      max-width: 340px;
+    }
+    .phone-status {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 4px 8px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--slate-300);
+    }
+    .push-card {
+      background: linear-gradient(165deg, #1a2538 0%, #121c2c 100%);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 22px;
+      padding: 18px 16px 16px;
+      box-shadow:
+        0 20px 50px rgba(0,0,0,0.55),
+        0 0 0 1px rgba(16,185,129,0.08),
+        inset 0 1px 0 rgba(255,255,255,0.06);
+      position: relative;
+      overflow: hidden;
+    }
+    .push-card::before {
+      content: "";
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, var(--emerald-500), transparent);
+      opacity: 0.7;
+    }
+    .push-app {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .push-app-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 9px;
+      background: linear-gradient(145deg, var(--emerald-500), #047857);
+      display: grid;
+      place-items: center;
+    }
+    .push-app-icon svg { width: 18px; height: 18px; color: white; }
+    .push-app-name { font-size: 13px; font-weight: 650; color: var(--white); }
+    .push-app-time { font-size: 11px; color: var(--slate-400); }
+    .push-headline {
+      font-size: 17px;
+      font-weight: 650;
+      color: var(--white);
+      letter-spacing: -0.02em;
+      margin-bottom: 6px;
+    }
+    .push-purpose {
+      font-size: 14px;
+      color: var(--slate-300);
+      margin-bottom: 14px;
+      line-height: 1.4;
+    }
+    .push-details {
+      background: rgba(0,0,0,0.28);
+      border-radius: 14px;
+      padding: 12px;
+      margin-bottom: 16px;
+      border: 1px solid rgba(255,255,255,0.04);
+    }
+    .detail-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 6px 0;
+      font-size: 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .detail-row:last-child { border-bottom: none; }
+    .detail-key { color: var(--slate-400); flex-shrink: 0; }
+    .detail-val {
+      color: var(--slate-200);
+      text-align: right;
+      font-family: var(--mono);
+      font-size: 11px;
+      word-break: break-all;
+    }
+    .agent-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--slate-300);
+      background: var(--ink-800);
+      border: 1px solid var(--ink-600);
+      padding: 4px 10px;
+      border-radius: 999px;
+      margin-bottom: 12px;
+    }
+    .agent-pill .dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--blue-400);
+    }
+
+    /* Active session */
+    .countdown-ring {
+      width: 140px;
+      height: 140px;
+      margin: 8px auto 16px;
+      position: relative;
+    }
+    .countdown-ring svg { transform: rotate(-90deg); width: 140px; height: 140px; }
+    .countdown-ring .track { fill: none; stroke: var(--ink-700); stroke-width: 8; }
+    .countdown-ring .prog {
+      fill: none;
+      stroke: var(--emerald-500);
+      stroke-width: 8;
+      stroke-linecap: round;
+      stroke-dasharray: 377;
+      stroke-dashoffset: 80;
+      transition: stroke-dashoffset 1s linear;
+      filter: drop-shadow(0 0 6px var(--emerald-glow));
+    }
+    .countdown-center {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .countdown-time {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--white);
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.03em;
+    }
+    .countdown-label { font-size: 11px; color: var(--slate-400); text-transform: uppercase; letter-spacing: 0.06em; }
+
+    .jail-box {
+      background: var(--ink-900);
+      border: 1px dashed var(--ink-500);
+      border-radius: var(--radius-md);
+      padding: 12px;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--emerald-400);
+      text-align: center;
+      margin-bottom: 8px;
+    }
+    .jail-label {
+      font-size: 10px;
+      color: var(--slate-400);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 4px;
+      font-family: var(--font);
+    }
+
+    .activity-log {
+      list-style: none;
+      margin-top: 4px;
+    }
+    .activity-log li {
+      display: flex;
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--ink-800);
+      font-size: 12px;
+    }
+    .activity-log li:last-child { border-bottom: none; }
+    .act-time {
+      color: var(--slate-400);
+      font-family: var(--mono);
+      font-size: 11px;
+      flex-shrink: 0;
+      width: 52px;
+    }
+    .act-msg { color: var(--slate-300); flex: 1; }
+    .act-msg strong { color: var(--white); font-weight: 600; }
+
+    /* Audit table */
+    .audit-filters {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      margin-bottom: 10px;
+      -webkit-overflow-scrolling: touch;
+    }
+    .audit-filters .chip { white-space: nowrap; padding: 6px 12px; font-size: 12px; }
+
+    .audit-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    .audit-table th {
+      text-align: left;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--slate-400);
+      padding: 8px 6px;
+      border-bottom: 1px solid var(--ink-700);
+      font-weight: 650;
+    }
+    .audit-table td {
+      padding: 10px 6px;
+      border-bottom: 1px solid var(--ink-800);
+      vertical-align: top;
+      color: var(--slate-300);
+    }
+    .audit-table tr:last-child td { border-bottom: none; }
+    .evt-type {
+      font-weight: 600;
+      color: var(--white);
+      display: block;
+      margin-bottom: 2px;
+    }
+    .evt-detail { color: var(--slate-400); font-size: 11px; }
+    .evt-time { font-family: var(--mono); font-size: 11px; color: var(--slate-400); white-space: nowrap; }
+
+    /* Bottom nav */
+    .bottom-nav {
+      position: sticky;
+      bottom: 0;
+      margin-top: auto;
+      background: rgba(11, 18, 32, 0.92);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-top: 1px solid var(--ink-700);
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      padding: 6px 4px calc(6px + var(--safe-b));
+      z-index: 50;
+    }
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      padding: 8px 2px;
+      background: none;
+      border: none;
+      color: var(--slate-400);
+      font-family: inherit;
+      font-size: 9px;
+      font-weight: 550;
+      letter-spacing: 0.01em;
+      cursor: pointer;
+      border-radius: 10px;
+      transition: color 0.15s, background 0.15s;
+    }
+    .nav-item svg { width: 20px; height: 20px; }
+    .nav-item:hover { color: var(--slate-200); }
+    .nav-item.active {
+      color: var(--emerald-400);
+      background: rgba(16,185,129,0.08);
+    }
+    .nav-item .nav-dot {
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: var(--amber-400);
+      position: absolute;
+      top: 6px;
+      right: calc(50% - 14px);
+    }
+    .nav-item { position: relative; }
+
+    /* Flow hint banner */
+    .flow-hint {
+      background: rgba(16,185,129,0.08);
+      border: 1px solid rgba(16,185,129,0.22);
+      border-radius: var(--radius-md);
+      padding: 10px 12px;
+      font-size: 12px;
+      color: var(--slate-300);
+      margin-bottom: 14px;
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+    }
+    .flow-hint strong { color: var(--emerald-400); }
+    .flow-hint svg { flex-shrink: 0; width: 16px; height: 16px; color: var(--emerald-400); margin-top: 1px; }
+
+    .empty-hint {
+      text-align: center;
+      padding: 24px 12px;
+      color: var(--slate-400);
+      font-size: 13px;
+    }
+
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 13px;
+      color: var(--slate-400);
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+      padding: 0;
+      margin-bottom: 8px;
+    }
+    .back-link:hover { color: var(--emerald-400); }
+
+    .stat-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .stat {
+      background: var(--ink-850);
+      border: 1px solid var(--ink-700);
+      border-radius: var(--radius-md);
+      padding: 10px;
+      text-align: center;
+    }
+    .stat-val {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--white);
+      letter-spacing: -0.02em;
+    }
+    .stat-lbl {
+      font-size: 10px;
+      color: var(--slate-400);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-top: 2px;
+    }
+
+
+    /* Form fields (Connect host) */
+    .field { margin-bottom: 14px; }
+    .field-hint { font-size: 11px; color: var(--slate-400); margin-top: 6px; line-height: 1.4; }
+    .field-row { display: grid; grid-template-columns: 1fr 88px; gap: 10px; }
+    .input, .select {
+      width: 100%; background: var(--ink-900); border: 1px solid var(--ink-600);
+      border-radius: var(--radius-md); color: var(--white); font: inherit; font-size: 14px;
+      padding: 11px 12px; outline: none; transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .input:focus, .select:focus {
+      border-color: var(--emerald-400); box-shadow: 0 0 0 3px rgba(16,185,129,0.15);
+    }
+    .input::placeholder { color: var(--slate-400); opacity: 0.75; }
+    .input.mono { font-family: var(--mono); font-size: 13px; }
+    .cred-note {
+      display: flex; gap: 8px; align-items: flex-start;
+      background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.22);
+      border-radius: var(--radius-md); padding: 10px 12px; font-size: 12px;
+      color: var(--slate-300); margin: 4px 0 14px;
+    }
+    .cred-note svg { flex-shrink: 0; width: 16px; height: 16px; color: var(--emerald-400); margin-top: 1px; }
+    .test-result {
+      display: none; align-items: center; gap: 8px; margin-top: 10px;
+      padding: 10px 12px; border-radius: var(--radius-md);
+      background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.28);
+      color: var(--emerald-400); font-size: 13px; font-weight: 550;
+    }
+    .test-result.show { display: flex; }
+    .test-result .spinner {
+      width: 14px; height: 14px; border: 2px solid rgba(16,185,129,0.3);
+      border-top-color: var(--emerald-400); border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+    .badge-ok {
+      color: var(--emerald-400); background: rgba(16,185,129,0.12);
+      border-color: rgba(16,185,129,0.25);
+    }
+
+    /* Magic-link / email-SMS web approve card */
+    .magic-wrap { margin: 4px auto 0; max-width: 360px; }
+    .magic-channel {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      font-size: 11px; color: var(--slate-400); margin-bottom: 12px;
+    }
+    .magic-channel .pill {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: var(--ink-800); border: 1px solid var(--ink-600);
+      padding: 4px 9px; border-radius: 999px; color: var(--slate-300);
+    }
+    .magic-channel .pill svg { width: 12px; height: 12px; color: var(--emerald-400); }
+    .approve-card {
+      background: linear-gradient(165deg, #152238 0%, #101929 100%);
+      border: 1px solid rgba(16,185,129,0.22);
+      border-radius: var(--radius-xl); padding: 20px 16px 16px;
+      box-shadow: 0 16px 40px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.03);
+      position: relative; overflow: hidden;
+    }
+    .approve-card::before {
+      content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, transparent, var(--emerald-500), transparent); opacity: 0.85;
+    }
+    .approve-brand { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+    .approve-brand-icon {
+      width: 40px; height: 40px; border-radius: 11px;
+      background: linear-gradient(145deg, var(--emerald-500), #047857);
+      display: grid; place-items: center; box-shadow: 0 4px 12px var(--emerald-glow);
+    }
+    .approve-brand-icon svg { width: 20px; height: 20px; color: white; }
+    .approve-brand-name { font-size: 14px; font-weight: 650; color: var(--white); }
+    .approve-brand-sub { font-size: 11px; color: var(--slate-400); }
+    .approve-headline {
+      font-size: 18px; font-weight: 650; color: var(--white);
+      letter-spacing: -0.02em; margin-bottom: 6px;
+    }
+    .approve-purpose { font-size: 14px; color: var(--slate-300); margin-bottom: 14px; line-height: 1.4; }
+    .approve-details {
+      background: rgba(0,0,0,0.28); border-radius: 14px; padding: 12px;
+      margin-bottom: 16px; border: 1px solid rgba(255,255,255,0.04);
+    }
+    .magic-footer {
+      margin-top: 12px; text-align: center; font-size: 11px; color: var(--slate-400); line-height: 1.4;
+    }
+    .magic-footer code { color: var(--slate-300); font-size: 10px; }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <div class="app" id="app">
+    <div class="demo-ribbon" id="demo-ribbon">
+      <strong>ArtiFTP</strong> UI · not live product · <span id="ribbon-auth">checking auth…</span>
+    </div>
+
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <div class="brand-name">ArtiFTP</div>
+          <div class="brand-sub">Phone-approve SFTP for Grok / Cursor</div>
+        </div>
+      </div>
+      <div class="top-actions">
+        <button class="icon-btn" type="button" title="Request magic link" aria-label="Account" id="btn-account">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 19c1.5-3.5 4-5 7-5s5.5 1.5 7 5"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <main class="screens">
+      <!-- 1. Sites dashboard -->
+      <!-- Auth gate -->
+      <section class="screen" id="screen-auth" data-screen="auth" aria-label="Owner sign in">
+        <h1 class="screen-title">Owner sign-in</h1>
+        <p class="screen-desc">Magic-link cookie auth. Link is printed to the ArtiFTP server console in dev.</p>
+        <div class="card" style="padding:16px">
+          <p style="font-size:13px;color:var(--slate-300);margin-bottom:14px" id="auth-status">Not signed in.</p>
+          <button class="btn btn-primary btn-block" type="button" id="btn-request-link">Email me a magic link</button>
+          <p class="field-hint" style="margin-top:12px">After you click the link in the console, this UI reloads with an <code>artiftp_owner</code> cookie.</p>
+        </div>
+      </section>
+
+      <section class="screen active" id="screen-sites" data-screen="sites" aria-label="Sites dashboard">
+        <h1 class="screen-title">Sites</h1>
+        <p class="screen-desc">Connected hosts. Agents never see SFTP credentials.</p>
+
+        <div class="stat-row">
+          <div class="stat"><div class="stat-val" id="stat-sites">0</div><div class="stat-lbl">Sites</div></div>
+          <div class="stat"><div class="stat-val" id="stat-sessions">0</div><div class="stat-lbl">Active</div></div>
+          <div class="stat"><div class="stat-val" id="stat-pending">0</div><div class="stat-lbl">Pending</div></div>
+        </div>
+
+        <div class="flow-hint" id="sites-hint">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>
+          <div><strong>Live:</strong> Connect a host, set Policy, then Approve a pending agent request.</div>
+        </div>
+
+        <div id="sites-list"></div>
+
+        <button class="btn btn-ghost btn-block" type="button" style="margin-top:8px" id="btn-add-site" data-go="connect">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>
+          Connect host
+        </button>
+      </section>
+
+      <!-- Connect host -->
+      <section class="screen" id="screen-connect" data-screen="connect" aria-label="Connect host">
+        <button class="back-link" type="button" data-go="sites" id="conn-back">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg>
+          Sites
+        </button>
+        <h1 class="screen-title" id="conn-title">Connect host</h1>
+        <p class="screen-desc" id="conn-desc">Vault SFTP once. The gateway holds creds — agents only get short-lived session tokens.</p>
+
+        <div class="field">
+          <label class="field-label" for="conn-name">Display name</label>
+          <input class="input" id="conn-name" type="text" placeholder="Barter &amp; Build" autocomplete="off" />
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="conn-host">SFTP host</label>
+          <input class="input mono" id="conn-host" type="text" placeholder="ftp.example.com" inputmode="url" autocomplete="off" spellcheck="false" />
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label class="field-label" for="conn-user">Username</label>
+            <input class="input mono" id="conn-user" type="text" placeholder="u123456" autocomplete="username" spellcheck="false" />
+          </div>
+          <div class="field">
+            <label class="field-label" for="conn-port">Port</label>
+            <input class="input mono" id="conn-port" type="number" value="22" min="1" max="65535" />
+          </div>
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="conn-secret">Password or private key</label>
+          <input class="input" id="conn-secret" type="password" placeholder="••••••••••••" autocomplete="new-password" />
+          <p class="field-hint" id="conn-secret-hint">Paste password or PEM key material. Never shown to agents or in chat.</p>
+        </div>
+
+        <div id="conn-edit-fields" class="hidden">
+          <div class="field">
+            <label class="field-label" for="conn-root">Jail root path</label>
+            <input class="input mono" id="conn-root" type="text" placeholder="/home/…/public_html" inputmode="url" autocomplete="off" spellcheck="false" />
+            <p class="field-hint">GoDaddy jails are often <code>/home/…/public_html</code> (not bare <code>/</code>). Agents stay under this root.</p>
+          </div>
+
+          <div class="section-label">Access mode</div>
+          <div class="seg" id="conn-mode-seg" role="radiogroup" aria-label="Access mode">
+            <button type="button" class="seg-opt" data-conn-mode="ro" role="radio" aria-checked="false">
+              <div class="opt-title">Read only</div>
+              <div class="opt-desc">List &amp; download</div>
+            </button>
+            <button type="button" class="seg-opt selected" data-conn-mode="rw" role="radio" aria-checked="true">
+              <div class="opt-title">Read + write</div>
+              <div class="opt-desc">Upload &amp; update</div>
+            </button>
+          </div>
+
+          <div class="section-label">Session TTL</div>
+          <div class="chip-row" id="conn-ttl-row" role="radiogroup" aria-label="Session duration">
+            <button type="button" class="chip selected" data-conn-ttl="15m" role="radio" aria-checked="true">15 min</button>
+            <button type="button" class="chip" data-conn-ttl="1h" role="radio" aria-checked="false">1 hour</button>
+            <button type="button" class="chip" data-conn-ttl="until" role="radio" aria-checked="false">Until revoke</button>
+          </div>
+        </div>
+
+        <div class="cred-note">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <div><strong style="color:var(--emerald-400)">Stored encrypted</strong> — agents never see this. Only the ArtiFTP gateway decrypts in-memory for approved sessions.</div>
+        </div>
+
+        <div class="btn-row" style="margin-top:4px">
+          <button class="btn btn-ghost" type="button" id="btn-test-conn">Test connection</button>
+          <button class="btn btn-primary" type="button" id="btn-save-conn" disabled>Save host</button>
+        </div>
+        <div class="test-result" id="test-result" role="status"></div>
+      </section>
+
+      <!-- 2. Site policy -->
+      <section class="screen" id="screen-policy" data-screen="policy" aria-label="Site policy">
+        <button class="back-link" type="button" data-go="sites">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg>
+          Sites
+        </button>
+        <h1 class="screen-title" id="policy-title">Select a site</h1>
+        <p class="screen-desc">Jail the agent to a folder. Credentials stay vaulted.</p>
+
+        <div class="section-label">Allowed root</div>
+        <div class="path-picker" id="path-display">
+          <svg class="folder-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg>
+          <div class="path-crumbs" id="path-crumbs"></div>
+        </div>
+        <div class="path-tree" id="path-tree" role="listbox" aria-label="Folder picker"></div>
+
+        <div class="path-add">
+          <div class="path-add-label">Add a directory</div>
+          <div class="path-add-row">
+            <input id="path-custom-input" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="/home/…/public_html/samples" aria-label="Custom directory path" />
+            <button class="btn-add-path" type="button" id="btn-add-path">Add</button>
+          </div>
+          <p class="path-add-hint">MVP: one root per site. GoDaddy jail root is often <code>/home/…/public_html</code> (not bare <code>/</code>). Type a path and Add — it becomes the jailed <code>root_path</code>.</p>
+        </div>
+
+        <div class="section-label">Access mode</div>
+        <div class="seg" role="radiogroup" aria-label="Access mode">
+          <button type="button" class="seg-opt" data-mode="ro" role="radio" aria-checked="false">
+            <div class="opt-title">Read only</div>
+            <div class="opt-desc">List &amp; download</div>
+          </button>
+          <button type="button" class="seg-opt selected" data-mode="rw" role="radio" aria-checked="true">
+            <div class="opt-title">Read + write</div>
+            <div class="opt-desc">Upload &amp; update</div>
+          </button>
+        </div>
+
+        <div class="section-label">Session TTL</div>
+        <div class="chip-row" role="radiogroup" aria-label="Session duration">
+          <button type="button" class="chip selected" data-ttl="15m" role="radio" aria-checked="true">15 min</button>
+          <button type="button" class="chip" data-ttl="1h" role="radio" aria-checked="false">1 hour</button>
+          <button type="button" class="chip" data-ttl="until" role="radio" aria-checked="false">Until revoke</button>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn btn-ghost" type="button" data-go="approve" id="btn-sim-request">View pending</button>
+          <button class="btn btn-primary" type="button" id="btn-save-policy">Save</button>
+        </div>
+      </section>
+
+      <!-- 3. Magic-link approve -->
+      <section class="screen" id="screen-approve" data-screen="approve" aria-label="Approve access request">
+        <button class="back-link" type="button" data-go="sites">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg>
+          Sites
+        </button>
+        <h1 class="screen-title">Approve access</h1>
+        <p class="screen-desc">Pending agent requests · Approve posts to <code>/approve/:token</code>.</p>
+
+        <div id="approve-empty" class="card hidden">
+          <div class="empty-hint">No pending requests.<br/>When an agent calls <code>request_access</code>, it shows up here.</div>
+        </div>
+
+        <div class="magic-wrap" id="approve-live">
+          <div class="magic-channel">
+            <span class="pill">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16v12H4z"/><path d="M4 7l8 6 8-6"/></svg>
+              Email link
+            </span>
+            <span class="pill">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="3" width="12" height="18" rx="2"/><path d="M10 17h4"/></svg>
+              SMS fallback
+            </span>
+            <span id="approve-opened">Pending</span>
+          </div>
+
+          <div class="approve-card" id="approve-card">
+            <div class="approve-brand">
+              <div class="approve-brand-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              </div>
+              <div>
+                <div class="approve-brand-name">ArtiFTP</div>
+                <div class="approve-brand-sub">Secure folder access request</div>
+              </div>
+            </div>
+            <div class="agent-pill" id="approve-agent"><span class="dot"></span> Agent</div>
+            <div class="approve-headline">ArtiFTP — approve this upload</div>
+            <p class="approve-purpose" id="push-purpose">—</p>
+            <div class="approve-details" id="approve-details">
+              <div class="detail-row">
+                <span class="detail-key">Purpose</span>
+                <span class="detail-val" id="approve-purpose-val">—</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-key">Site</span>
+                <span class="detail-val" id="approve-site">—</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-key">Path</span>
+                <span class="detail-val" id="push-path">—</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-key">Mode</span>
+                <span class="detail-val" id="push-mode">—</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-key">TTL</span>
+                <span class="detail-val" id="push-ttl">—</span>
+              </div>
+            </div>
+            <div class="btn-row" style="margin-top:0">
+              <button class="btn btn-deny" type="button" id="btn-deny">Deny</button>
+              <button class="btn btn-primary" type="button" id="btn-approve">Approve</button>
+            </div>
+            <p style="margin-top:10px;font-size:11px;color:var(--slate-400)">
+              <a href="#" id="approve-open-link" style="color:var(--emerald-400)">Open server approve page</a>
+            </p>
+          </div>
+          <p class="magic-footer" id="approve-footer">
+            No token yet<br/>
+            Agents never see your SFTP password — gateway only.
+          </p>
+        </div>
+
+        <div id="pending-list" style="margin-top:12px"></div>
+      </section>
+
+      <!-- 4. Active session -->
+      <section class="screen" id="screen-session" data-screen="session" aria-label="Active session">
+        <h1 class="screen-title">Active session</h1>
+        <p class="screen-desc" id="session-desc">No live session. Approve a request to start one.</p>
+
+        <div id="session-empty" class="card">
+          <div class="empty-hint">
+            No active session.<br/>
+            <button class="btn btn-ghost" type="button" data-go="approve" style="margin-top:12px">Go to pending request</button>
+          </div>
+        </div>
+
+        <div id="session-live" class="hidden">
+          <div class="countdown-ring" aria-live="polite">
+            <svg viewBox="0 0 140 140">
+              <circle class="track" cx="70" cy="70" r="60"/>
+              <circle class="prog" id="ring-prog" cx="70" cy="70" r="60"/>
+            </svg>
+            <div class="countdown-center">
+              <div class="countdown-time" id="countdown">14:59</div>
+              <div class="countdown-label">remaining</div>
+            </div>
+          </div>
+
+          <div class="jail-box">
+            <div class="jail-label">Jailed root</div>
+            <span id="jail-path">/public_html/samples</span>
+          </div>
+
+          <div style="display:flex;gap:8px;justify-content:center;margin:12px 0;flex-wrap:wrap">
+            <span class="badge badge-live">Live</span>
+            <span class="badge badge-rw" id="session-mode-badge">Read + write</span>
+            <span class="badge badge-idle" style="text-transform:none;letter-spacing:0" id="session-agent">Agent</span>
+          </div>
+
+          <button class="btn btn-danger btn-block" type="button" id="btn-revoke">Revoke now</button>
+
+          <div class="section-label">Activity</div>
+          <div class="card" style="padding:8px 12px">
+            <ul class="activity-log" id="activity-log"></ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- 5. Audit log -->
+      <section class="screen" id="screen-audit" data-screen="audit" aria-label="Audit log">
+        <h1 class="screen-title">Audit log</h1>
+        <p class="screen-desc">Recent ArtiFTP events across your sites.</p>
+
+        <div class="audit-filters">
+          <button type="button" class="chip selected" data-filter="all">All</button>
+          <button type="button" class="chip" data-filter="approvals">Approvals</button>
+          <button type="button" class="chip" data-filter="files">Files</button>
+          <button type="button" class="chip" data-filter="denials">Denials</button>
+        </div>
+
+        <div class="card" style="padding:4px 8px 8px; overflow-x:auto">
+          <table class="audit-table">
+            <thead>
+              <tr>
+                <th>When</th>
+                <th>Event</th>
+                <th>Site</th>
+              </tr>
+            </thead>
+            <tbody id="audit-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <nav class="bottom-nav" aria-label="Primary">
+      <button type="button" class="nav-item active" data-go="sites">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 10.5L12 3l9 7.5V20a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1v-9.5z"/></svg>
+        Sites
+      </button>
+      <button type="button" class="nav-item" data-go="policy">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l8 4v5c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V7l8-4z"/><path d="M9 12l2 2 4-4"/></svg>
+        Policy
+      </button>
+      <button type="button" class="nav-item" data-go="approve" id="nav-approve">
+        <span class="nav-dot" id="nav-pending-dot"></span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16v12H4z"/><path d="M4 7l8 6 8-6"/></svg>
+        Approve
+      </button>
+      <button type="button" class="nav-item" data-go="session">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+        Session
+      </button>
+      <button type="button" class="nav-item" data-go="audit">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+        Audit
+      </button>
+    </nav>
+  </div>
+
+  <div class="toast" id="toast" role="status"></div>
+
+  <script>
+    (function () {
+      const CIRC = 2 * Math.PI * 60;
+
+      const state = {
+        authed: false,
+        owner: null,
+        siteId: null,
+        mode: "rw", // UI: ro|rw → API: read|read_write
+        ttl: "15m",
+        path: "/samples",
+        sites: [],
+        requests: [],
+        sessions: [],
+        auditEvents: [],
+        auditFilter: "all",
+        pendingRequest: null,
+        activeSession: null,
+        remainingSec: 0,
+        timer: null,
+        activity: [],
+        connTested: false,
+        editingSiteId: null,
+        connMode: "rw",
+        connTtl: "15m",
+        loading: false,
+        apiDown: false,
+      };
+
+      const $ = (sel, el = document) => el.querySelector(sel);
+      const $$ = (sel, el = document) => [...el.querySelectorAll(sel)];
+
+      function toast(msg) {
+        const el = $("#toast");
+        el.textContent = msg;
+        el.classList.add("show");
+        clearTimeout(el._t);
+        el._t = setTimeout(() => el.classList.remove("show"), 2800);
+      }
+
+      function esc(s) {
+        return String(s ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+
+      async function api(path, opts = {}) {
+        const headers = Object.assign({ Accept: "application/json" }, opts.headers || {});
+        if (opts.body && !headers["Content-Type"]) headers["Content-Type"] = "application/json";
+        let res;
+        try {
+          res = await fetch(path, Object.assign({}, opts, { credentials: "include", headers }));
+        } catch (e) {
+          state.apiDown = true;
+          throw Object.assign(new Error("api_unreachable"), { status: 0, detail: String(e) });
+        }
+        state.apiDown = false;
+        const text = await res.text();
+        let json = null;
+        try { json = text ? JSON.parse(text) : null; } catch { json = { raw: text }; }
+        if (!res.ok) {
+          const err = new Error((json && (json.error || json.message)) || res.statusText || "request_failed");
+          err.status = res.status;
+          err.json = json;
+          throw err;
+        }
+        return json;
+      }
+
+      function ttlLabel(ttl) {
+        return ttl === "15m" ? "15 min" : ttl === "1h" ? "1 hour" : "Until revoke";
+      }
+      function ttlToSec(ttl) {
+        if (ttl === "15m") return 900;
+        if (ttl === "1h") return 3600;
+        return 86400; // until revoke → API max
+      }
+      function secToTtlChip(sec) {
+        const n = Number(sec) || 900;
+        if (n <= 900) return "15m";
+        if (n <= 3600) return "1h";
+        return "until";
+      }
+      function modeLabel(m) {
+        return m === "rw" || m === "read_write" ? "Read + write" : "Read only";
+      }
+      function modeToApi(m) {
+        return m === "ro" || m === "read" ? "read" : "read_write";
+      }
+      function modeFromApi(m) {
+        return m === "read" ? "ro" : "rw";
+      }
+      function formatTime(sec) {
+        const m = Math.floor(Math.max(0, sec) / 60);
+        const s = Math.max(0, sec) % 60;
+        return String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
+      }
+      function formatWhen(iso) {
+        if (!iso) return "—";
+        try {
+          const d = new Date(iso);
+          return d.toLocaleString("en-US", {
+            month: "short", day: "numeric",
+            hour: "numeric", minute: "2-digit", hour12: true,
+            timeZone: "America/Los_Angeles",
+          }) + " PT";
+        } catch { return String(iso); }
+      }
+      function initialsFrom(name) {
+        const parts = String(name).replace(/\.(com|example|net|org)$/i, "").split(/[\s._-]+/).filter(Boolean);
+        if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+        return (parts[0] || "AH").slice(0, 2).toUpperCase();
+      }
+      function siteById(id) {
+        return state.sites.find((s) => s.id === id) || null;
+      }
+      function currentSite() {
+        return siteById(state.siteId) || state.sites[0] || null;
+      }
+      function slugify(name) {
+        return String(name || "site").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "site";
+      }
+      function normalizePath(raw) {
+        let p = String(raw || "").trim();
+        if (!p) return "";
+        p = p.replace(/\\/g, "/");
+        if (!p.startsWith("/")) p = "/" + p;
+        p = p.replace(/\/+/g, "/");
+        if (p.length > 1 && p.endsWith("/")) p = p.slice(0, -1);
+        if (p.split("/").includes("..")) return "";
+        return p;
+      }
+      function pathLabel(path) {
+        const parts = path.split("/").filter(Boolean);
+        return parts.length ? parts[parts.length - 1] : path;
+      }
+
+      function setRibbon() {
+        const el = $("#ribbon-auth");
+        if (state.apiDown) el.textContent = "API unreachable";
+        else if (!state.authed) el.textContent = "sign in required";
+        else el.textContent = (state.owner && state.owner.email) ? state.owner.email : "signed in";
+      }
+
+      function go(screen) {
+        if (!state.authed && screen !== "auth") {
+          screen = "auth";
+        }
+        const run = () => {
+          if (screen !== "connect" && state.editingSiteId) {
+            state.editingSiteId = null;
+            state.connTested = false;
+          }
+          $$(".screen").forEach((s) => s.classList.toggle("active", s.dataset.screen === screen));
+          $$(".nav-item").forEach((n) => {
+            const activeScreen = (screen === "connect" || screen === "auth") ? "sites" : screen;
+            n.classList.toggle("active", n.dataset.go === activeScreen);
+          });
+          if (screen === "policy") renderPolicy();
+          if (screen === "approve") renderApprove();
+          if (screen === "connect" && !state.editingSiteId) resetConnectForm();
+          if (screen === "connect") syncConnectChrome();
+          if (screen === "session") renderSession();
+          if (screen === "audit") renderAudit();
+          if (screen === "sites") renderSites();
+        };
+        if (document.startViewTransition) document.startViewTransition(run);
+        else run();
+      }
+
+      async function refreshAll() {
+        if (!state.authed) return;
+        try {
+          const [sitesRes, reqRes, sessRes] = await Promise.all([
+            api("/api/sites"),
+            api("/api/requests"),
+            api("/api/sessions"),
+          ]);
+          state.sites = sitesRes.sites || [];
+          state.requests = reqRes.requests || [];
+          state.sessions = sessRes.sessions || [];
+          if (!state.siteId && state.sites[0]) state.siteId = state.sites[0].id;
+          if (state.siteId && !siteById(state.siteId) && state.sites[0]) state.siteId = state.sites[0].id;
+          const site = currentSite();
+          if (site) {
+            state.path = site.root_path || state.path;
+            state.mode = modeFromApi(site.mode);
+            state.ttl = secToTtlChip(site.max_ttl_sec);
+          }
+          const pending = state.requests.filter((r) => r.status === "pending");
+          if (state.pendingRequest) {
+            const still = pending.find((r) => r.id === state.pendingRequest.id);
+            state.pendingRequest = still || pending[0] || null;
+          } else {
+            state.pendingRequest = pending[0] || null;
+          }
+          const active = state.sessions.find((s) => s.status === "active");
+          state.activeSession = active || null;
+          if (active) {
+            const left = Math.max(0, Math.floor((new Date(active.expires_at).getTime() - Date.now()) / 1000));
+            state.remainingSec = left;
+            ensureCountdown();
+          } else {
+            stopTimer();
+          }
+          setRibbon();
+          renderSites();
+          const activeScreen = $(".screen.active");
+          if (activeScreen) {
+            const s = activeScreen.dataset.screen;
+            if (s === "policy") renderPolicy();
+            if (s === "approve") renderApprove();
+            if (s === "session") renderSession();
+          }
+        } catch (e) {
+          if (e.status === 401) {
+            state.authed = false;
+            setRibbon();
+            go("auth");
+            toast("Session expired — request a new magic link");
+            return;
+          }
+          toast("API error: " + (e.message || "failed"));
+          setRibbon();
+        }
+      }
+
+      async function checkAuth() {
+        try {
+          const me = await api("/api/me");
+          state.authed = true;
+          state.owner = me.owner || null;
+          $("#auth-status").textContent = "Signed in as " + ((me.owner && me.owner.email) || "owner");
+          setRibbon();
+          await refreshAll();
+          go("sites");
+        } catch (e) {
+          state.authed = false;
+          state.owner = null;
+          setRibbon();
+          if (e.status === 0) {
+            $("#auth-status").textContent = "Cannot reach ArtiFTP API. Is npm run dev running on :8787?";
+            toast("API down — start ArtiFTP (port 8787)");
+          } else {
+            $("#auth-status").textContent = "Not signed in. Request a magic link (printed to server console).";
+          }
+          go("auth");
+        }
+      }
+
+      async function requestMagicLink() {
+        try {
+          const res = await api("/auth/request-link", { method: "POST", body: "{}" });
+          toast("Magic link printed to server console");
+          $("#auth-status").textContent =
+            "Link requested (expires " + formatWhen(res.expires_at) + "). Check the ArtiFTP terminal, open the URL, then return here.";
+        } catch (e) {
+          toast("Could not request link: " + (e.message || "error"));
+        }
+      }
+
+      async function deleteSite(siteId, button) {
+        const site = siteById(siteId);
+        if (!site || !confirm('Delete this site connection?')) return;
+        if (button) button.disabled = true;
+        try {
+          // api() sends credentials: include for the owner cookie.
+          await api("/api/sites/" + encodeURIComponent(siteId), { method: "DELETE" });
+          if (state.siteId === siteId) {
+            state.siteId = null;
+            state.path = "/samples";
+          }
+          toast("Site deleted");
+          await refreshAll();
+        } catch (e) {
+          toast("Delete failed: " + (e.message || "error"));
+        } finally {
+          if (button && button.isConnected) button.disabled = false;
+        }
+      }
+
+      function renderSites() {
+        const pending = state.requests.filter((r) => r.status === "pending");
+        const activeSessions = state.sessions.filter((s) => s.status === "active");
+        $("#stat-sites").textContent = String(state.sites.length);
+        $("#stat-sessions").textContent = String(activeSessions.length);
+        $("#stat-pending").textContent = String(pending.length);
+        $("#nav-pending-dot").style.display = pending.length ? "block" : "none";
+        $("#sites-hint").classList.toggle("hidden", !state.authed || (activeSessions.length > 0 && pending.length === 0));
+
+        const list = $("#sites-list");
+        list.innerHTML = "";
+        if (!state.sites.length) {
+          list.innerHTML = '<div class="card"><div class="empty-hint">No sites yet. Tap Connect host to vault SFTP creds (mock password OK for dogfood).</div></div>';
+          return;
+        }
+        state.sites.forEach((site) => {
+          const hasPending = pending.some((r) => r.site_id === site.id);
+          const live = activeSessions.find((s) => s.site_id === site.id);
+          let badgeClass = "badge-idle";
+          let badgeText = "Idle";
+          if (live) { badgeClass = "badge-live"; badgeText = "Live"; }
+          else if (hasPending) { badgeClass = "badge-pending"; badgeText = "Pending"; }
+          const initials = initialsFrom(site.display_name || site.slug);
+          const article = document.createElement("article");
+          article.className = "card interactive";
+          article.tabIndex = 0;
+          article.setAttribute("role", "button");
+          article.dataset.go = "policy";
+          article.dataset.site = site.id;
+          article.setAttribute("aria-label", "Open " + site.display_name + " policy");
+          article.innerHTML =
+            '<div class="site-row">' +
+              '<div class="site-avatar' + (site.slug && site.slug.indexOf("barter") >= 0 ? "" : " generic") + '">' + esc(initials) + "</div>" +
+              '<div class="site-meta"><div class="site-name">' + esc(site.display_name) +
+                ' <span class="badge ' + badgeClass + '">' + badgeText + "</span>" +
+                (site.slug && site.slug.indexOf("barter") >= 0 ? ' <span class="dogfood">dogfood</span>' : "") +
+              "</div>" +
+              '<div class="site-host">sftp://' + esc(site.host) + ":" + esc(site.port) + " · " + esc(site.sftp_user) + "</div>" +
+              "</div></div>" +
+            '<div class="site-foot"><span>Root: <code style="color:var(--emerald-400)">' + esc(site.root_path) +
+              "</code></span><span>" + esc(modeLabel(site.mode)) + " · TTL " + esc(site.max_ttl_sec) + "s</span></div>";
+          const actions = document.createElement("div");
+          actions.className = "site-actions";
+          const editButton = document.createElement("button");
+          editButton.type = "button";
+          editButton.className = "btn btn-ghost site-edit";
+          editButton.textContent = "Edit";
+          editButton.setAttribute("aria-label", "Edit " + site.display_name);
+          editButton.addEventListener("click", (event) => {
+            event.stopPropagation();
+            openEditSite(site.id);
+          });
+          const deleteButton = document.createElement("button");
+          deleteButton.type = "button";
+          deleteButton.className = "btn btn-danger site-delete";
+          deleteButton.textContent = "Delete";
+          deleteButton.setAttribute("aria-label", "Delete " + site.display_name);
+          deleteButton.addEventListener("click", (event) => {
+            event.stopPropagation();
+            deleteSite(site.id, deleteButton);
+          });
+          actions.appendChild(editButton);
+          actions.appendChild(deleteButton);
+          article.querySelector(".site-row").appendChild(actions);
+          list.appendChild(article);
+        });
+      }
+
+      function allowListForSite(site) {
+        const root = site.root_path || "/samples";
+        const items = [{ path: root, label: pathLabel(root) }];
+        // Suggest a few parents / siblings for UX without multi-root
+        const parts = root.split("/").filter(Boolean);
+        if (parts.length > 1) {
+          const parent = "/" + parts.slice(0, -1).join("/");
+          if (!items.some((i) => i.path === parent)) items.unshift({ path: parent, label: pathLabel(parent) });
+        }
+        ["/samples", "/public_html", "/public_html/samples"].forEach((p) => {
+          if (!items.some((i) => i.path === p)) items.push({ path: p, label: pathLabel(p), custom: true });
+        });
+        return items;
+      }
+
+      function addCustomPath() {
+        const path = normalizePath($("#path-custom-input").value);
+        if (!path) {
+          toast("Enter a valid path starting with /");
+          return;
+        }
+        state.path = path;
+        $("#path-custom-input").value = "";
+        renderPolicy();
+        toast("Root set to " + path + " — tap Save to persist");
+      }
+
+      function renderPolicy() {
+        const site = currentSite();
+        if (!site) {
+          $("#policy-title").textContent = "No site selected";
+          $("#path-crumbs").innerHTML = "";
+          $("#path-tree").innerHTML = '<div class="empty-hint" style="padding:12px">Connect a host first.</div>';
+          return;
+        }
+        state.siteId = site.id;
+        $("#policy-title").textContent = site.display_name;
+        if (!state.path) state.path = site.root_path;
+        const tree = allowListForSite(Object.assign({}, site, { root_path: state.path }));
+        // Ensure current path appears
+        if (!tree.some((t) => t.path === state.path)) {
+          tree.push({ path: state.path, label: pathLabel(state.path), custom: true });
+        }
+        const parts = state.path.split("/").filter(Boolean);
+        const crumbs = $("#path-crumbs");
+        crumbs.innerHTML = "";
+        parts.forEach((p, i) => {
+          if (i === 0) {
+            const root = document.createElement("span");
+            root.className = "crumb-sep";
+            root.textContent = "/";
+            crumbs.appendChild(root);
+          } else {
+            const sep = document.createElement("span");
+            sep.className = "crumb-sep";
+            sep.textContent = "/";
+            crumbs.appendChild(sep);
+          }
+          const span = document.createElement("span");
+          span.className = "crumb" + (i === parts.length - 1 ? " current" : "");
+          span.textContent = p;
+          crumbs.appendChild(span);
+        });
+        if (!parts.length) {
+          crumbs.innerHTML = '<span class="crumb current">/</span>';
+        }
+
+        const treeEl = $("#path-tree");
+        treeEl.innerHTML = "";
+        tree.forEach((item) => {
+          const row = document.createElement("div");
+          row.className = "path-item" + (item.path === state.path ? " selected" : "");
+          row.setAttribute("role", "option");
+          row.setAttribute("aria-selected", item.path === state.path ? "true" : "false");
+          const shown = item.custom ? item.path : item.label;
+          row.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg><span title="' + esc(item.path) + '">' + esc(shown) + "</span>";
+          row.addEventListener("click", () => {
+            state.path = item.path;
+            renderPolicy();
+          });
+          treeEl.appendChild(row);
+        });
+
+        $$(".seg-opt").forEach((el) => {
+          const on = el.dataset.mode === state.mode;
+          el.classList.toggle("selected", on);
+          el.setAttribute("aria-checked", on ? "true" : "false");
+        });
+        $$(".chip[data-ttl]").forEach((el) => {
+          const on = el.dataset.ttl === state.ttl;
+          el.classList.toggle("selected", on);
+          el.setAttribute("aria-checked", on ? "true" : "false");
+        });
+      }
+
+      async function savePolicy() {
+        const site = currentSite();
+        if (!site) { toast("Select a site first"); return; }
+        const root = normalizePath(state.path) || site.root_path;
+        try {
+          const res = await api("/api/sites/" + encodeURIComponent(site.id), {
+            method: "PATCH",
+            body: JSON.stringify({
+              root_path: root,
+              mode: modeToApi(state.mode),
+              max_ttl_sec: ttlToSec(state.ttl),
+            }),
+          });
+          const updated = res.site;
+          const idx = state.sites.findIndex((s) => s.id === updated.id);
+          if (idx >= 0) state.sites[idx] = updated;
+          state.path = updated.root_path;
+          state.mode = modeFromApi(updated.mode);
+          state.ttl = secToTtlChip(updated.max_ttl_sec);
+          toast("Policy saved · " + updated.root_path + " · " + modeLabel(updated.mode));
+          renderSites();
+          renderPolicy();
+        } catch (e) {
+          toast("Save failed: " + (e.message || "error"));
+        }
+      }
+
+      function renderApprove() {
+        const pending = state.requests.filter((r) => r.status === "pending");
+        const req = state.pendingRequest || pending[0] || null;
+        state.pendingRequest = req;
+        const empty = $("#approve-empty");
+        const live = $("#approve-live");
+        const list = $("#pending-list");
+        list.innerHTML = "";
+
+        if (pending.length > 1) {
+          pending.forEach((r) => {
+            const site = siteById(r.site_id);
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "btn btn-ghost btn-block";
+            btn.style.marginBottom = "6px";
+            btn.textContent = (r.agent_label || "Agent") + " · " + (site ? site.display_name : r.site_id) + " · " + r.purpose;
+            btn.addEventListener("click", () => {
+              state.pendingRequest = r;
+              renderApprove();
+            });
+            if (req && r.id === req.id) btn.style.borderColor = "var(--emerald-500)";
+            list.appendChild(btn);
+          });
+        }
+
+        if (!req) {
+          empty.classList.remove("hidden");
+          live.classList.add("hidden");
+          return;
+        }
+        empty.classList.add("hidden");
+        live.classList.remove("hidden");
+        const site = siteById(req.site_id);
+        const path = req.path_hint || (site && site.root_path) || "—";
+        $("#approve-agent").innerHTML = '<span class="dot"></span> ' + esc(req.agent_label || "Agent");
+        $("#push-purpose").textContent = req.purpose || "—";
+        $("#approve-purpose-val").textContent = req.purpose || "—";
+        $("#approve-site").textContent = site ? site.display_name : req.site_id;
+        $("#push-path").textContent = path;
+        $("#push-mode").textContent = modeLabel(req.mode);
+        $("#push-ttl").textContent = (req.requested_ttl_sec || 0) + "s";
+        $("#approve-opened").textContent = "Created " + formatWhen(req.created_at);
+        const tok = req.approve_token || "";
+        $("#approve-footer").innerHTML =
+          (tok
+            ? 'Link token <code>' + esc(tok.slice(0, 10)) + "…</code>"
+            : "No approve token on this request") +
+          "<br/>Agents never see your SFTP password — gateway only.";
+        const link = $("#approve-open-link");
+        if (req.approve_url) {
+          link.href = req.approve_url;
+          link.onclick = null;
+        } else {
+          link.href = "#";
+          link.onclick = (e) => { e.preventDefault(); toast("No approve_url — use magic link from agent console"); };
+        }
+      }
+
+      async function decidePending(decision) {
+        const req = state.pendingRequest;
+        if (!req) { toast("No pending request"); return; }
+        const token = req.approve_token;
+        if (!token) {
+          if (req.approve_url) {
+            window.location.href = req.approve_url;
+            return;
+          }
+          toast("Missing approve token — open the magic link from the server console");
+          return;
+        }
+        try {
+          // Actual API field is `decision` (map said `action` — we send decision; API also accepts action)
+          await api("/approve/" + encodeURIComponent(token), {
+            method: "POST",
+            body: JSON.stringify({ decision: decision, action: decision }),
+          });
+          toast(decision === "approve" ? "Approved — session minted" : "Denied — agent notified");
+          await refreshAll();
+          if (decision === "approve") go("session");
+          else go("sites");
+        } catch (e) {
+          // HTML responses from approve page still count as ok for form posts; JSON path may return HTML
+          if (e.json && e.json.raw && /Approved|Denied|Session active/i.test(e.json.raw)) {
+            toast(decision === "approve" ? "Approved" : "Denied");
+            await refreshAll();
+            go(decision === "approve" ? "session" : "sites");
+            return;
+          }
+          toast("Decide failed: " + (e.message || "error"));
+        }
+      }
+
+      function syncConnectChrome() {
+        const editing = Boolean(state.editingSiteId);
+        const title = $("#conn-title");
+        const desc = $("#conn-desc");
+        const secret = $("#conn-secret");
+        const hint = $("#conn-secret-hint");
+        const editFields = $("#conn-edit-fields");
+        const save = $("#btn-save-conn");
+        if (title) title.textContent = editing ? "Edit site" : "Connect host";
+        if (desc) {
+          desc.textContent = editing
+            ? "Update host, vault password (optional), jail root, mode, and TTL. Leave password blank to keep the current secret."
+            : "Vault SFTP once. The gateway holds creds — agents only get short-lived session tokens.";
+        }
+        if (secret) {
+          secret.placeholder = editing ? "leave blank to keep current" : "••••••••••••";
+        }
+        if (hint) {
+          hint.textContent = editing
+            ? "Leave blank to keep the current password. New values are encrypted at rest."
+            : "Paste password or PEM key material. Never shown to agents or in chat.";
+        }
+        if (editFields) editFields.classList.toggle("hidden", !editing);
+        if (save) {
+          save.textContent = editing ? "Save changes" : "Save host";
+          if (editing) save.disabled = false;
+        }
+        // Mode / TTL chips on connect (edit only)
+        $$("#conn-mode-seg .seg-opt").forEach((el) => {
+          const on = el.dataset.connMode === state.connMode;
+          el.classList.toggle("selected", on);
+          el.setAttribute("aria-checked", on ? "true" : "false");
+        });
+        $$("#conn-ttl-row .chip").forEach((el) => {
+          const on = el.dataset.connTtl === state.connTtl;
+          el.classList.toggle("selected", on);
+          el.setAttribute("aria-checked", on ? "true" : "false");
+        });
+      }
+
+      function clearConnectFields() {
+        $("#conn-name").value = "";
+        $("#conn-host").value = "";
+        $("#conn-user").value = "";
+        $("#conn-port").value = "22";
+        $("#conn-secret").value = "";
+        const root = $("#conn-root");
+        if (root) root.value = "";
+        state.connMode = "rw";
+        state.connTtl = "15m";
+      }
+
+      function resetConnectForm() {
+        state.editingSiteId = null;
+        state.connTested = false;
+        clearConnectFields();
+        const save = $("#btn-save-conn");
+        if (save) save.disabled = true;
+        const tr = $("#test-result");
+        if (tr) { tr.classList.remove("show"); tr.innerHTML = ""; }
+        syncConnectChrome();
+      }
+
+      function openEditSite(siteId) {
+        const site = siteById(siteId);
+        if (!site) {
+          toast("Site not found");
+          return;
+        }
+        state.editingSiteId = site.id;
+        state.siteId = site.id;
+        state.connTested = true; // allow Save without re-test when editing
+        state.connMode = modeFromApi(site.mode);
+        state.connTtl = secToTtlChip(site.max_ttl_sec);
+        $("#conn-name").value = site.display_name || "";
+        $("#conn-host").value = site.host || "";
+        $("#conn-user").value = site.sftp_user || "";
+        $("#conn-port").value = String(site.port || 22);
+        $("#conn-secret").value = "";
+        const root = $("#conn-root");
+        if (root) root.value = site.root_path || "";
+        const tr = $("#test-result");
+        if (tr) { tr.classList.remove("show"); tr.innerHTML = ""; }
+        syncConnectChrome();
+        go("connect");
+      }
+
+      function mockTestConnection() {
+        const host = $("#conn-host").value.trim();
+        const user = $("#conn-user").value.trim();
+        const port = $("#conn-port").value || "22";
+        const secret = $("#conn-secret").value;
+        const name = $("#conn-name").value.trim();
+        const editing = Boolean(state.editingSiteId);
+        if (!host || !user || (!secret && !editing)) {
+          toast(editing ? "Fill host and username" : "Fill host, username, and password/key");
+          return;
+        }
+        const tr = $("#test-result");
+        tr.classList.add("show");
+        tr.innerHTML = '<span class="spinner" aria-hidden="true"></span> Validating fields for sftp://' + esc(host) + ":" + esc(port) + "…";
+        $("#btn-test-conn").disabled = true;
+        setTimeout(() => {
+          state.connTested = true;
+          $("#btn-test-conn").disabled = false;
+          $("#btn-save-conn").disabled = false;
+          tr.innerHTML = '<span class="badge badge-ok" style="text-transform:none;letter-spacing:0">Ready</span> Fields OK · ' +
+            esc(user) + "@" + esc(host) + ":" + esc(port) + (name ? " · " + esc(name) : "") +
+            " · live SFTP probe not implemented (mock backend)";
+          toast(editing ? "Fields OK — Save updates via PATCH /api/sites/:id" : "Fields OK — Save vaults via POST /api/sites");
+        }, 400);
+      }
+
+      async function saveConnectedHost() {
+        const editing = Boolean(state.editingSiteId);
+        if (!editing && !state.connTested) {
+          toast("Test connection first");
+          return;
+        }
+        const display_name = $("#conn-name").value.trim() || $("#conn-host").value.trim();
+        const host = $("#conn-host").value.trim();
+        const port = parseInt($("#conn-port").value, 10) || 22;
+        const sftp_user = $("#conn-user").value.trim();
+        const password = $("#conn-secret").value;
+        if (!host || !sftp_user) {
+          toast("Host and username are required");
+          return;
+        }
+        if (!editing && !password) {
+          toast("Password is required for new hosts");
+          return;
+        }
+        try {
+          if (editing) {
+            const rootRaw = ($("#conn-root") && $("#conn-root").value.trim()) || "/";
+            const root_path = normalizePath(rootRaw) || rootRaw;
+            const body = {
+              display_name,
+              host,
+              port,
+              sftp_user, // API primary; username alias also accepted
+              root_path,
+              mode: modeToApi(state.connMode),
+              max_ttl_sec: ttlToSec(state.connTtl),
+            };
+            if (password) body.password = password; // omit when blank → keep current
+            const res = await api("/api/sites/" + encodeURIComponent(state.editingSiteId), {
+              method: "PATCH",
+              body: JSON.stringify(body),
+            });
+            const site = res.site;
+            state.siteId = site.id;
+            state.path = site.root_path;
+            state.mode = modeFromApi(site.mode);
+            state.ttl = secToTtlChip(site.max_ttl_sec);
+            resetConnectForm();
+            toast("Site updated");
+            await refreshAll();
+            go("sites");
+          } else {
+            const slug = slugify(display_name);
+            const res = await api("/api/sites", {
+              method: "POST",
+              body: JSON.stringify({
+                slug,
+                display_name,
+                host,
+                port,
+                sftp_user, // API field (map said username — alias also accepted server-side)
+                password,
+                root_path: "/samples",
+                mode: "read_write",
+                max_ttl_sec: 900,
+              }),
+            });
+            const site = res.site;
+            state.sites.unshift(site);
+            state.siteId = site.id;
+            state.path = site.root_path;
+            state.mode = modeFromApi(site.mode);
+            state.ttl = secToTtlChip(site.max_ttl_sec);
+            resetConnectForm();
+            toast("Host saved · credentials encrypted");
+            renderSites();
+            go("policy");
+          }
+        } catch (e) {
+          toast("Save failed: " + (e.message || "error"));
+        }
+      }
+
+      function updateRing() {
+
+        const sess = state.activeSession;
+        const total = sess
+          ? Math.max(1, Math.floor((new Date(sess.expires_at).getTime() - new Date(sess.created_at).getTime()) / 1000))
+          : ttlToSec(state.ttl);
+        const frac = Math.max(0, Math.min(1, state.remainingSec / total));
+        $("#ring-prog").style.strokeDasharray = String(CIRC);
+        $("#ring-prog").style.strokeDashoffset = String(CIRC * (1 - frac));
+        $("#countdown").textContent = formatTime(state.remainingSec);
+      }
+
+      function renderActivity() {
+        const ul = $("#activity-log");
+        ul.innerHTML = state.activity
+          .map((a) => '<li><span class="act-time">' + esc(a.t) + '</span><span class="act-msg">' + a.msg + "</span></li>")
+          .join("");
+      }
+
+      function ensureCountdown() {
+        stopTimer();
+        if (!state.activeSession) return;
+        updateRing();
+        state.timer = setInterval(() => {
+          if (!state.activeSession) { stopTimer(); return; }
+          const left = Math.max(0, Math.floor((new Date(state.activeSession.expires_at).getTime() - Date.now()) / 1000));
+          state.remainingSec = left;
+          updateRing();
+          if (left <= 0) {
+            stopTimer();
+            toast("Session expired — ArtiFTP locked");
+            refreshAll();
+          }
+        }, 1000);
+      }
+
+      function stopTimer() {
+        if (state.timer) {
+          clearInterval(state.timer);
+          state.timer = null;
+        }
+      }
+
+      function renderSession() {
+        const empty = $("#session-empty");
+        const live = $("#session-live");
+        const sess = state.activeSession;
+        if (sess) {
+          empty.classList.add("hidden");
+          live.classList.remove("hidden");
+          const site = siteById(sess.site_id);
+          $("#session-desc").textContent = "Short-lived token · path-jailed via ArtiFTP gateway";
+          $("#jail-path").textContent = sess.root_path;
+          $("#session-mode-badge").textContent = modeLabel(sess.mode);
+          $("#session-mode-badge").className = "badge " + (sess.mode === "read_write" ? "badge-rw" : "badge-ro");
+          $("#session-agent").textContent = site ? site.display_name : sess.id.slice(0, 8);
+          state.remainingSec = Math.max(0, Math.floor((new Date(sess.expires_at).getTime() - Date.now()) / 1000));
+          updateRing();
+          // Activity from recent audit for this session
+          const related = state.auditEvents
+            .filter((e) => e.session_id === sess.id || e.site_id === sess.site_id)
+            .slice(0, 6);
+          if (related.length) {
+            state.activity = related.map((e) => ({
+              t: formatWhen(e.at),
+              msg: "<strong>" + esc(e.action) + "</strong>",
+            }));
+          } else if (!state.activity.length) {
+            state.activity = [{ t: formatWhen(sess.created_at), msg: "Session <strong>active</strong> · expires " + esc(formatWhen(sess.expires_at)) }];
+          }
+          renderActivity();
+          ensureCountdown();
+        } else {
+          empty.classList.remove("hidden");
+          live.classList.add("hidden");
+          $("#session-desc").textContent = "No live session. Approve a request to start one.";
+          stopTimer();
+        }
+      }
+
+      async function revokeActive() {
+        const sess = state.activeSession;
+        if (!sess) { toast("No active session"); return; }
+        try {
+          await api("/api/sessions/" + encodeURIComponent(sess.id) + "/revoke", {
+            method: "POST",
+            body: "{}",
+          });
+          toast("Session revoked — ArtiFTP locked");
+          state.activeSession = null;
+          stopTimer();
+          await refreshAll();
+          renderSession();
+        } catch (e) {
+          toast("Revoke failed: " + (e.message || "error"));
+        }
+      }
+
+      async function loadAudit() {
+        try {
+          const filter = state.auditFilter || "all";
+          const res = await api("/api/audit?filter=" + encodeURIComponent(filter));
+          state.auditEvents = res.events || [];
+          renderAudit();
+        } catch (e) {
+          if (e.status === 401) {
+            state.authed = false;
+            go("auth");
+            return;
+          }
+          toast("Audit load failed: " + (e.message || "error"));
+        }
+      }
+
+      function renderAudit() {
+        const body = $("#audit-body");
+        const siteName = (id) => {
+          const s = siteById(id);
+          return s ? s.display_name : (id || "—");
+        };
+        const rows = state.auditEvents;
+        if (!rows.length) {
+          body.innerHTML = '<tr><td colspan="3" class="evt-detail">No events yet.</td></tr>';
+          return;
+        }
+        body.innerHTML = rows
+          .map((e) => {
+            let detail = "";
+            try { detail = e.detail ? (typeof e.detail === "string" ? e.detail : JSON.stringify(e.detail)) : ""; } catch { detail = ""; }
+            if (detail.length > 80) detail = detail.slice(0, 77) + "…";
+            return "<tr>" +
+              '<td class="evt-time">' + esc(formatWhen(e.at)) + "</td>" +
+              "<td><span class=\"evt-type\">" + esc(e.action) + '</span><span class="evt-detail">' + esc(detail) + "</span></td>" +
+              '<td class="evt-detail">' + esc(siteName(e.site_id)) + "</td>" +
+              "</tr>";
+          })
+          .join("");
+      }
+
+      // Events
+      document.addEventListener("click", (e) => {
+        const goEl = e.target.closest("[data-go]");
+        if (goEl && !goEl.closest("#btn-approve") && goEl.id !== "btn-deny") {
+          if (goEl.dataset.site) state.siteId = goEl.dataset.site;
+          const screen = goEl.dataset.go;
+          if (screen === "audit") {
+            go("audit");
+            loadAudit();
+          } else if (screen === "approve" || screen === "session" || screen === "sites" || screen === "policy") {
+            refreshAll().then(() => go(screen));
+          } else {
+            go(screen);
+          }
+        }
+      });
+
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          if (e.target.closest(".site-delete") || e.target.closest(".site-edit")) return;
+          const card = e.target.closest(".card.interactive");
+          if (card) {
+            e.preventDefault();
+            if (card.dataset.site) state.siteId = card.dataset.site;
+            go(card.dataset.go);
+          }
+        }
+      });
+
+      $$(".seg-opt").forEach((el) => {
+        el.addEventListener("click", () => {
+          state.mode = el.dataset.mode;
+          renderPolicy();
+        });
+      });
+
+      $$(".chip[data-ttl]").forEach((el) => {
+        el.addEventListener("click", () => {
+          state.ttl = el.dataset.ttl;
+          renderPolicy();
+        });
+      });
+
+      $$(".audit-filters .chip").forEach((el) => {
+        el.addEventListener("click", () => {
+          state.auditFilter = el.dataset.filter;
+          $$(".audit-filters .chip").forEach((c) => c.classList.toggle("selected", c === el));
+          loadAudit();
+        });
+      });
+
+      $("#btn-add-path").addEventListener("click", addCustomPath);
+      $("#path-custom-input").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          addCustomPath();
+        }
+      });
+
+      $("#btn-save-policy").addEventListener("click", savePolicy);
+      $("#btn-test-conn").addEventListener("click", mockTestConnection);
+      $("#btn-save-conn").addEventListener("click", saveConnectedHost);
+      $("#btn-add-site").addEventListener("click", () => {
+        state.editingSiteId = null;
+        resetConnectForm();
+      });
+      $$("#conn-mode-seg .seg-opt").forEach((el) => {
+        el.addEventListener("click", () => {
+          state.connMode = el.dataset.connMode;
+          syncConnectChrome();
+        });
+      });
+      $$("#conn-ttl-row .chip").forEach((el) => {
+        el.addEventListener("click", () => {
+          state.connTtl = el.dataset.connTtl;
+          syncConnectChrome();
+        });
+      });
+      $("#btn-approve").addEventListener("click", () => decidePending("approve"));
+      $("#btn-deny").addEventListener("click", () => decidePending("deny"));
+      $("#btn-revoke").addEventListener("click", revokeActive);
+      $("#btn-request-link").addEventListener("click", requestMagicLink);
+      $("#btn-account").addEventListener("click", () => {
+        if (!state.authed) go("auth");
+        else requestMagicLink();
+      });
+
+      // Deep-link: /ui/#approve/<token> or ?approve_token=
+      function consumeDeepLink() {
+        const params = new URLSearchParams(location.search);
+        let token = params.get("approve_token") || params.get("token");
+        const hash = location.hash || "";
+        const m = hash.match(/^#approve\/([^/?]+)/);
+        if (m) token = decodeURIComponent(m[1]);
+        if (token) {
+          state.pendingRequest = { approve_token: token, approve_url: "/approve/" + encodeURIComponent(token), purpose: "Magic-link request", status: "pending" };
+          // Will merge with list after refresh
+          return token;
+        }
+        return null;
+      }
+
+      const deepToken = consumeDeepLink();
+
+      // Init
+      checkAuth().then(() => {
+        if (deepToken && state.authed) {
+          // Prefer matching pending by token; else keep stub for direct POST
+          const match = state.requests.find((r) => r.approve_token === deepToken);
+          if (match) state.pendingRequest = match;
+          go("approve");
+        }
+      });
+
+      // Soft poll while visible
+      setInterval(() => {
+        if (state.authed && !document.hidden) refreshAll();
+      }, 15000);
+    })();
+  </script>
+</body>
+</html>

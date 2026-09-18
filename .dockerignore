@@ -1,0 +1,7 @@
+node_modules
+data
+ref-ui
+*.md
+scripts/live-*.ts
+scripts/try-*.ts
+.git
