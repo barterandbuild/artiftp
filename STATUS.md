@@ -20,9 +20,10 @@
   - Audit log in SQLite
   - Tool endpoints: `list_sites`, `request_access`, `session_status`, `list_files`, `upload_file`, `download_file`, `end_session`
   - Owner: `GET /api/sites` includes `backend`; `GET /api/sites/:id/backend`; `POST /api/sites/:id/test` (connect + list root, no secrets logged)
+  - **Public waitlist** `POST /api/waitlist` — landing form emails hello@ via Resend (not stored in SQLite; Railway disk is ephemeral)
 - **MCP stub** at `mcp/index.ts` — stdio MCP calling the HTTP API
 - **Owner UI** at `/ui/` — **fetch wired** to live owner routes (cookie magic-link auth); ink+emerald polish
-- **Tests** — `npm test` (path-jail + Resend mail helper with mocked key)
+- **Tests** — `npm test` (path-jail + Resend mail helper + waitlist validation with mocked send)
 - **Dogfood script** — `npm run dogfood` (API must be up)
 
 ## Resend (magic-link email)
@@ -33,7 +34,7 @@ Owner login (`createOwnerMagicLink`) and approve-access (`createApproveMagicLink
 |-----|---------|-------|
 | `RESEND_API_KEY` | *(unset)* | Required to send. **Do not commit.** Missing → warning + console-only (local/dev safe) |
 | `EMAIL_FROM` | `noreply@artiftp.com` | Also accepts `ArtiFTP <noreply@artiftp.com>` |
-| `OWNER_EMAIL` | `hello@barterandbuild.com` | Login + approve recipients (or the owner email stored in DB) |
+| `OWNER_EMAIL` | `hello@barterandbuild.com` | Login + approve + waitlist recipients (or the owner email stored in DB) |
 
 Verify the `artiftp.com` domain in the Resend dashboard so `noreply@artiftp.com` is allowed. On boot the process logs `email from=… env_RESEND_API_KEY=set|missing` (never the key).
 
@@ -46,6 +47,20 @@ curl -sS https://api.resend.com/emails \
 ```
 
 Helper + mocked-key unit tests: `src/mail.ts`, `tests/mail.test.ts`.
+
+## Landing waitlist (Justice)
+
+The artiftp.com form can POST JSON to **`https://app.artiftp.com/api/waitlist`**. Public, no auth. CORS allows `https://artiftp.com`, `https://www.artiftp.com`, and localhost. Signups are **email-only** (Resend to `OWNER_EMAIL` / `hello@barterandbuild.com`) — **not written to SQLite** (Railway disk is ephemeral). Missing `RESEND_API_KEY` → `503` (do not pretend success).
+
+| Field | Required | Notes |
+|-------|----------|-------|
+| `name` | yes | string |
+| `business` or `business_name` | yes | string |
+| `email` | yes | basic `user@host.tld` check |
+| `agent` | yes | e.g. Grok, Cursor, Other |
+| `host` or `host_type` | no | e.g. GoDaddy, cPanel, VPS, Other |
+
+Success: `{ ok: true }`. Validation errors: `400` `{ error: "…" }`.
 
 ## How Justice dogfoods
 

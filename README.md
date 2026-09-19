@@ -29,7 +29,9 @@ Deploy from this repo with the included `Dockerfile` and `railway.toml`:
 
 Set `ARTIFTP_SECRET` in Railway (encrypts site credential blobs). Set **`PUBLIC_BASE_URL=https://app.artiftp.com`** (or your public host) so magic/approve links printed to logs are clickable. `BASE_URL` is a legacy alias. On boot the process logs `public_base_url=… env_PUBLIC_BASE_URL=set|missing` so you can confirm the variable reached the container.
 
-To email magic links, set **`RESEND_API_KEY`** (Resend dashboard) and verify the `artiftp.com` domain so mail can come from `noreply@artiftp.com`. Optional **`EMAIL_FROM`** overrides the from address (`Name <email>` allowed). Without the API key the app still boots and prints links to the console.
+To email magic links and waitlist signups, set **`RESEND_API_KEY`** (Resend dashboard) and verify the `artiftp.com` domain so mail can come from `noreply@artiftp.com`. Optional **`EMAIL_FROM`** overrides the from address (`Name <email>` allowed). Without the API key the app still boots and prints links to the console; `POST /api/waitlist` returns `503` instead of pretending success.
+
+Public landing form: `POST /api/waitlist` (`name`, `business` or `business_name`, `email`, `agent`; optional `host` / `host_type`) → emails `OWNER_EMAIL`. Not stored in SQLite.
 
 ## Env
 
@@ -37,7 +39,7 @@ To email magic links, set **`RESEND_API_KEY`** (Resend dashboard) and verify the
 |-----|---------|---------|
 | `PORT` | `8787` | Listen port |
 | `ARTIFTP_SECRET` | dev string | Encrypt site creds (`AGENTFTP_SECRET` is a legacy fallback) |
-| `OWNER_EMAIL` | `hello@barterandbuild.com` | Bootstrap owner (login + approve emails go here / the owner row) |
+| `OWNER_EMAIL` | `hello@barterandbuild.com` | Bootstrap owner + waitlist / login / approve recipient |
 | `RESEND_API_KEY` | *(unset)* | Resend API key; required to send mail. Missing → console-only |
 | `EMAIL_FROM` | `noreply@artiftp.com` | From address (`Name <email>` allowed) |
 | `PUBLIC_BASE_URL` | *(unset)* | Public origin for magic/approve links (read at request time) |
