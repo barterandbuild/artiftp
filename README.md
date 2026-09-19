@@ -31,7 +31,7 @@ Set `ARTIFTP_SECRET` in Railway (encrypts site credential blobs). Set **`PUBLIC_
 
 To email magic links and waitlist signups, set **`RESEND_API_KEY`** (Resend dashboard) and verify the `artiftp.com` domain so mail can come from `noreply@artiftp.com`. Optional **`EMAIL_FROM`** overrides the from address (`Name <email>` allowed). Without the API key the app still boots and prints links to the console; `POST /api/waitlist` returns `503` instead of pretending success.
 
-Public landing form: `POST /api/waitlist` (`name`, `business` or `business_name`, `email`, `agent`; optional `host` / `host_type`) → emails `OWNER_EMAIL`. Not stored in SQLite.
+Public landing form: `POST /api/waitlist` (`name`, `business` or `business_name`, `email`, `agent`, `sites` or `site_count`; `agent_other` when `agent` is Other; optional `host` / `host_type`) → emails `OWNER_EMAIL`. Not stored in SQLite.
 
 ## Env
 

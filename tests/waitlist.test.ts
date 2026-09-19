@@ -34,6 +34,7 @@ const validBody = {
   business: 'Analytical Engines',
   email: 'ada@example.com',
   agent: 'Cursor',
+  sites: '1-2',
   host: 'GoDaddy',
 };
 
@@ -62,17 +63,25 @@ describe('parseWaitlistBody', () => {
     assert.deepEqual(parsed, { ok: true, signup: validBody });
   });
 
-  it('accepts business_name and host_type aliases', () => {
+  it('accepts business_name, site_count, and host_type aliases', () => {
     const parsed = parseWaitlistBody({
       name: 'Ada',
       business_name: 'AE',
       email: 'ada@example.com',
       agent: 'Grok',
+      site_count: '3-6',
       host_type: 'cPanel',
     });
     assert.deepEqual(parsed, {
       ok: true,
-      signup: { name: 'Ada', business: 'AE', email: 'ada@example.com', agent: 'Grok', host: 'cPanel' },
+      signup: {
+        name: 'Ada',
+        business: 'AE',
+        email: 'ada@example.com',
+        agent: 'Grok',
+        sites: '3-6',
+        host: 'cPanel',
+      },
     });
   });
 
@@ -81,10 +90,81 @@ describe('parseWaitlistBody', () => {
       name: 'Ada',
       business: 'AE',
       email: 'ada@example.com',
-      agent: 'Other',
+      agent: 'Cursor',
+      sites: '1-2',
     });
     assert.equal(parsed.ok, true);
     if (parsed.ok) assert.equal(parsed.signup.host, undefined);
+  });
+
+  it('rejects Other without agent_other', () => {
+    assert.deepEqual(
+      parseWaitlistBody({ ...validBody, agent: 'Other' }),
+      { ok: false, error: 'agent_other is required' },
+    );
+    assert.deepEqual(
+      parseWaitlistBody({ ...validBody, agent: 'other', agent_other: '   ' }),
+      { ok: false, error: 'agent_other is required' },
+    );
+  });
+
+  it('accepts Other with agent_other (case-insensitive agent)', () => {
+    const parsed = parseWaitlistBody({
+      ...validBody,
+      agent: 'OTHER',
+      agent_other: 'Claude Desktop',
+    });
+    assert.deepEqual(parsed, {
+      ok: true,
+      signup: {
+        name: validBody.name,
+        business: validBody.business,
+        email: validBody.email,
+        agent: 'OTHER',
+        agent_other: 'Claude Desktop',
+        sites: '1-2',
+        host: 'GoDaddy',
+      },
+    });
+  });
+
+  it('ignores agent_other when agent is not Other', () => {
+    const parsed = parseWaitlistBody({ ...validBody, agent_other: 'should ignore' });
+    assert.equal(parsed.ok, true);
+    if (parsed.ok) assert.equal(parsed.signup.agent_other, undefined);
+  });
+
+  it('rejects missing or invalid sites', () => {
+    const { sites: _sites, ...noSites } = validBody;
+    assert.deepEqual(parseWaitlistBody(noSites), { ok: false, error: 'sites is required' });
+    assert.deepEqual(parseWaitlistBody({ ...validBody, sites: 'many' }), {
+      ok: false,
+      error: 'sites is invalid',
+    });
+    assert.deepEqual(parseWaitlistBody({ ...validBody, sites: 0 }), {
+      ok: false,
+      error: 'sites is invalid',
+    });
+    assert.deepEqual(parseWaitlistBody({ ...validBody, sites: -3 }), {
+      ok: false,
+      error: 'sites is invalid',
+    });
+  });
+
+  it('normalizes enum-ish and positive-integer site counts', () => {
+    const base = { name: 'Ada', business: 'AE', email: 'ada@example.com', agent: 'Cursor' };
+    const plus = parseWaitlistBody({ ...base, sites: '7+' });
+    assert.equal(plus.ok, true);
+    if (plus.ok) assert.equal(plus.signup.sites, '7+');
+    const unlimited = parseWaitlistBody({ ...base, sites: 'Unlimited' });
+    assert.equal(unlimited.ok, true);
+    if (unlimited.ok) assert.equal(unlimited.signup.sites, 'unlimited');
+    const asNumber = parseWaitlistBody({ ...base, site_count: 4 });
+    assert.equal(asNumber.ok, true);
+    if (asNumber.ok) assert.equal(asNumber.signup.sites, '4');
+    const asNumericString = parseWaitlistBody({ ...base, sites: '12' });
+    assert.equal(asNumericString.ok, true);
+    if (asNumericString.ok) assert.equal(asNumericString.signup.sites, '12');
   });
 
   it('rejects missing required fields', () => {
@@ -98,6 +178,10 @@ describe('parseWaitlistBody', () => {
       ok: false,
       error: 'agent is required',
     });
+    assert.deepEqual(
+      parseWaitlistBody({ name: 'Ada', business: 'AE', email: 'ada@example.com', agent: 'Cursor' }),
+      { ok: false, error: 'sites is required' },
+    );
   });
 
   it('rejects invalid email', () => {
@@ -140,7 +224,25 @@ describe('buildWaitlistEmail / getWaitlistRecipient', () => {
     assert.match(mail.text, /Business: Analytical Engines/);
     assert.match(mail.text, /Email: ada@example.com/);
     assert.match(mail.text, /Agent: Cursor/);
+    assert.match(mail.text, /Sites: 1-2/);
     assert.match(mail.text, /Host: GoDaddy/);
+  });
+
+  it('includes agent_other and sites in the email body', () => {
+    delete process.env.OWNER_EMAIL;
+    const mail = buildWaitlistEmail({
+      name: 'Ada Lovelace',
+      business: 'Analytical Engines',
+      email: 'ada@example.com',
+      agent: 'Other',
+      agent_other: 'Claude Desktop',
+      sites: 'unlimited',
+    });
+    assert.match(mail.text, /Agent: Other/);
+    assert.match(mail.text, /Agent other: Claude Desktop/);
+    assert.match(mail.text, /Sites: unlimited/);
+    assert.match(mail.html, /Agent other: Claude Desktop/);
+    assert.match(mail.html, /Sites: unlimited/);
   });
 });
 
@@ -172,6 +274,52 @@ describe('POST /api/waitlist', () => {
       });
       assert.equal(res.status, 400);
       assert.deepEqual(await res.json(), { error: 'business is required' });
+    });
+  });
+
+  it('returns 400 when agent is Other without agent_other', async () => {
+    await withServer(createWaitlistRouter({ sendEmail: async () => ({ ok: true, id: 'x' }) }), async (base) => {
+      const res = await fetch(`${base}/api/waitlist`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...validBody, agent: 'Other' }),
+      });
+      assert.equal(res.status, 400);
+      assert.deepEqual(await res.json(), { error: 'agent_other is required' });
+    });
+  });
+
+  it('returns { ok: true } when agent is Other with agent_other', async () => {
+    const sent: SendEmailInput[] = [];
+    const mockSend = async (input: SendEmailInput): Promise<SendEmailResult> => {
+      sent.push(input);
+      return { ok: true, id: 'ok' };
+    };
+    await withServer(createWaitlistRouter({ sendEmail: mockSend }), async (base) => {
+      const res = await fetch(`${base}/api/waitlist`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...validBody, agent: 'other', agent_other: 'Windsurf' }),
+      });
+      assert.equal(res.status, 200);
+      assert.deepEqual(await res.json(), { ok: true });
+    });
+    assert.equal(sent.length, 1);
+    assert.match(sent[0]!.text, /Agent: other/);
+    assert.match(sent[0]!.text, /Agent other: Windsurf/);
+    assert.match(sent[0]!.text, /Sites: 1-2/);
+  });
+
+  it('returns 400 when sites is missing', async () => {
+    const { sites: _sites, ...noSites } = validBody;
+    await withServer(createWaitlistRouter({ sendEmail: async () => ({ ok: true, id: 'x' }) }), async (base) => {
+      const res = await fetch(`${base}/api/waitlist`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(noSites),
+      });
+      assert.equal(res.status, 400);
+      assert.deepEqual(await res.json(), { error: 'sites is required' });
     });
   });
 
@@ -213,6 +361,7 @@ describe('POST /api/waitlist', () => {
     assert.equal(sent[0]!.to, 'hello@barterandbuild.com');
     assert.equal(sent[0]!.subject, 'ArtiFTP waitlist: Ada Lovelace / Analytical Engines');
     assert.match(sent[0]!.text, /Agent: Cursor/);
+    assert.match(sent[0]!.text, /Sites: 1-2/);
     assert.match(sent[0]!.text, /Host: GoDaddy/);
   });
 

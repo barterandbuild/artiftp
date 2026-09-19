@@ -19,7 +19,7 @@
 ## Public waitlist (landing page — no auth)
 
 `POST /api/waitlist` at `https://app.artiftp.com/api/waitlist`  
-JSON: `name`, `business` or `business_name`, `email`, `agent` (required); `host` or `host_type` (optional).  
+JSON: `name`, `business` or `business_name`, `email`, `agent`, `sites` or `site_count` (required); `agent_other` (required when `agent` is Other); `host` or `host_type` (optional).  
 Emails hello@ via Resend. Not stored in SQLite. CORS: artiftp.com + www + localhost.
 
 ## Owner auth (gates the `/api/*` routes)
