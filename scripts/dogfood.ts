@@ -29,7 +29,7 @@ async function api(
 }
 
 function ownerSession(): string {
-  const { token } = createOwnerMagicLink();
+  const { token } = createOwnerMagicLink({ email: false });
   const session = consumeOwnerMagicLink(token);
   if (!session) throw new Error('failed to mint owner session');
   return session;

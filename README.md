@@ -11,7 +11,7 @@ npm install
 npm start
 ```
 
-The server binds **`0.0.0.0`** and **`process.env.PORT`** (default `8787`). On boot it prints an owner magic link (and emails it when `RESEND_API_KEY` is set); then open **Owner UI** at `/ui/`.
+The server binds **`0.0.0.0`** and **`process.env.PORT`** (default `8787`). On boot it prints an owner magic link for ops backup (it does not email). Request a link from the Owner UI to email it when `RESEND_API_KEY` is set; then open **Owner UI** at `/ui/`.
 
 | Script | What |
 |--------|------|
@@ -37,7 +37,7 @@ To email magic links, set **`RESEND_API_KEY`** (Resend dashboard) and verify the
 |-----|---------|---------|
 | `PORT` | `8787` | Listen port |
 | `ARTIFTP_SECRET` | dev string | Encrypt site creds (`AGENTFTP_SECRET` is a legacy fallback) |
-| `OWNER_EMAIL` | `bryan@barterandbuild.com` | Bootstrap owner (login + approve emails go here / the owner row) |
+| `OWNER_EMAIL` | `hello@barterandbuild.com` | Bootstrap owner (login + approve emails go here / the owner row) |
 | `RESEND_API_KEY` | *(unset)* | Resend API key; required to send mail. Missing → console-only |
 | `EMAIL_FROM` | `noreply@artiftp.com` | From address (`Name <email>` allowed) |
 | `PUBLIC_BASE_URL` | *(unset)* | Public origin for magic/approve links (read at request time) |
