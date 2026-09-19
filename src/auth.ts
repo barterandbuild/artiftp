@@ -4,7 +4,7 @@ import { db, nowIso, audit } from './db.js';
 import { hashToken, randomToken } from './crypto.js';
 
 const OWNER_EMAIL = process.env.OWNER_EMAIL || 'bryan@barterandbuild.com';
-const BASE_URL = process.env.BASE_URL || 'http://127.0.0.1:8787';
+const BASE_URL = (process.env.PUBLIC_BASE_URL || process.env.BASE_URL || 'http://127.0.0.1:8787').replace(/\/$/, '');
 
 export function ensureDefaultOwner(): { id: string; email: string } {
   let row = db.prepare('SELECT id, email FROM owners WHERE email = ?').get(OWNER_EMAIL) as
