@@ -38,6 +38,7 @@ app.listen(PORT, '0.0.0.0', () => {
   if (siteCount === 0) {
     console.log('No sites yet — use dogfood script or Owner UI after magic-link login.');
   }
-  // Print (and email, when RESEND_API_KEY is set) a fresh owner login link on boot
-  void createOwnerMagicLink().emailed;
+  // Print a fresh owner login link on boot for ops backup — do not email
+  // (Railway deploys/restarts would otherwise flood the owner inbox).
+  createOwnerMagicLink({ email: false });
 });

@@ -7,7 +7,7 @@
 ## What works
 
 - **API server** (`npm run dev` / `npm start`) on `http://127.0.0.1:8787`
-  - Owner magic-link auth (link printed to console; emailed via Resend when `RESEND_API_KEY` is set; cookie session)
+  - Owner magic-link auth (link printed to console; emailed via Resend on explicit UI/API request when `RESEND_API_KEY` is set; cookie session). Boot only prints — it does not email.
   - Sites CRUD with encrypted password (`ARTIFTP_SECRET`; legacy `AGENTFTP_SECRET` fallback supported)
   - Policy: `root_path`, `read` \| `read_write`, `max_ttl_sec`
   - Access requests + HTML approve/deny pages (`/approve/:token`); approve magic link emailed to the site owner
@@ -27,13 +27,13 @@
 
 ## Resend (magic-link email)
 
-Owner login (`createOwnerMagicLink`) and approve-access (`createApproveMagicLink`) still print the full URL to the server console. When `RESEND_API_KEY` is set they also POST to `https://api.resend.com/emails`.
+Owner login (`createOwnerMagicLink`) and approve-access (`createApproveMagicLink`) still print the full URL to the server console. Boot calls `createOwnerMagicLink({ email: false })` so Railway restarts do not email. Explicit UI/API requests (`POST /auth/request-link`) keep the default `email: true`. When `RESEND_API_KEY` is set those requests (and approve-access links) POST to `https://api.resend.com/emails`.
 
 | Var | Default | Notes |
 |-----|---------|-------|
 | `RESEND_API_KEY` | *(unset)* | Required to send. **Do not commit.** Missing → warning + console-only (local/dev safe) |
 | `EMAIL_FROM` | `noreply@artiftp.com` | Also accepts `ArtiFTP <noreply@artiftp.com>` |
-| `OWNER_EMAIL` | `bryan@barterandbuild.com` | Login + approve recipients (or the owner email stored in DB) |
+| `OWNER_EMAIL` | `hello@barterandbuild.com` | Login + approve recipients (or the owner email stored in DB) |
 
 Verify the `artiftp.com` domain in the Resend dashboard so `noreply@artiftp.com` is allowed. On boot the process logs `email from=… env_RESEND_API_KEY=set|missing` (never the key).
 

@@ -5,8 +5,10 @@ import { hashToken, randomToken } from './crypto.js';
 import { getPublicBaseUrl } from './publicUrl.js';
 import { sendApproveAccessLink, sendOwnerLoginLink, type SendEmailResult } from './mail.js';
 
+export const DEFAULT_OWNER_EMAIL = 'hello@barterandbuild.com';
+
 export function getOwnerEmail(): string {
-  return process.env.OWNER_EMAIL?.trim() || 'bryan@barterandbuild.com';
+  return process.env.OWNER_EMAIL?.trim() || DEFAULT_OWNER_EMAIL;
 }
 
 export { getPublicBaseUrl, getBaseUrl } from './publicUrl.js';
@@ -42,11 +44,18 @@ function ownerEmailForRequest(requestId: string): string {
   return row?.email?.trim() || getOwnerEmail();
 }
 
-export function createOwnerMagicLink(): {
+export type CreateOwnerMagicLinkOpts = {
+  /** When false, print the link only (boot/ops backup). Default true for explicit UI/API requests. */
+  email?: boolean;
+};
+
+export type OwnerMagicLinkEmailResult = SendEmailResult | { ok: false; reason: 'skipped' };
+
+export function createOwnerMagicLink(opts: CreateOwnerMagicLinkOpts = {}): {
   token: string;
   url: string;
   expires_at: string;
-  emailed: Promise<SendEmailResult>;
+  emailed: Promise<OwnerMagicLinkEmailResult>;
 } {
   const owner = ensureDefaultOwner();
   const token = randomToken(24);
@@ -57,7 +66,10 @@ export function createOwnerMagicLink(): {
   ).run(hashToken(token), JSON.stringify({ owner_id: owner.id }), expires, nowIso());
   const url = `${getPublicBaseUrl()}/auth/magic?token=${encodeURIComponent(token)}`;
   console.log('\n[ArtiFTP] Owner magic link (dev):\n  ' + url + '\n');
-  const emailed = sendOwnerLoginLink(owner.email, url);
+  const emailed =
+    opts.email === false
+      ? Promise.resolve({ ok: false as const, reason: 'skipped' as const })
+      : sendOwnerLoginLink(owner.email, url);
   return { token, url, expires_at: expires, emailed };
 }
 
