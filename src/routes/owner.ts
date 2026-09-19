@@ -12,6 +12,7 @@ import {
   type OwnerReq,
   lookupApproveToken,
   markApproveTokenUsed,
+  getPublicBaseUrl,
 } from '../auth.js';
 import { mintSession, revokeSession, sessionLifecycle } from '../sessions.js';
 import { seedFromSamples, siteMockRoot } from '../fs/mockBackend.js';
@@ -221,7 +222,7 @@ ownerRouter.get('/api/requests', requireOwner, (req: OwnerReq, res) => {
       /* ignore */
     }
   }
-  const base = (process.env.PUBLIC_BASE_URL || process.env.BASE_URL || 'http://127.0.0.1:8787').replace(/\/$/, '');
+  const base = getPublicBaseUrl();
   const requests = rows.map((r) => {
     if (r.status !== 'pending') return { ...r, approve_token: null, approve_url: null };
     let token = tokenByRequest.get(r.id) || null;

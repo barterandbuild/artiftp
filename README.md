@@ -27,7 +27,7 @@ Deploy from this repo with the included `Dockerfile` and `railway.toml`:
 - Healthcheck path: `/health`
 - Listen address: `0.0.0.0` + Railway-injected `PORT`
 
-Set `ARTIFTP_SECRET` in Railway (encrypts site credential blobs). Optionally set `OWNER_EMAIL` and `BASE_URL` (magic-link host, e.g. your public Railway URL).
+Set `ARTIFTP_SECRET` in Railway (encrypts site credential blobs). Set **`PUBLIC_BASE_URL=https://app.artiftp.com`** (or your public host) so magic/approve links printed to logs are clickable. `BASE_URL` is a legacy alias. On boot the process logs `public_base_url=… env_PUBLIC_BASE_URL=set|missing` so you can confirm the variable reached the container.
 
 ## Env
 
@@ -36,4 +36,5 @@ Set `ARTIFTP_SECRET` in Railway (encrypts site credential blobs). Optionally set
 | `PORT` | `8787` | Listen port |
 | `ARTIFTP_SECRET` | dev string | Encrypt site creds (`AGENTFTP_SECRET` is a legacy fallback) |
 | `OWNER_EMAIL` | `bryan@barterandbuild.com` | Bootstrap owner |
-| `BASE_URL` | `http://127.0.0.1:8787` | Magic-link host |
+| `PUBLIC_BASE_URL` | *(unset)* | Public origin for magic/approve links (read at request time) |
+| `BASE_URL` | `http://127.0.0.1:8787` | Legacy alias if `PUBLIC_BASE_URL` is unset |

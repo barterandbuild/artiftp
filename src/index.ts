@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { ownerRouter } from './routes/owner.js';
 import { agentRouter } from './routes/agent.js';
 import { ensureDefaultOwner, createOwnerMagicLink } from './auth.js';
+import { logPublicBaseUrlOnStartup } from './publicUrl.js';
 import { db } from './db.js';
 import { getBackendMode } from './fs/storage.js';
 
@@ -30,6 +31,7 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`\nArtiFTP listening on http://0.0.0.0:${PORT}`);
   console.log(`Owner UI: http://0.0.0.0:${PORT}/ui/`);
   console.log(`Backend mode: ${getBackendMode()}`);
+  logPublicBaseUrlOnStartup();
   const siteCount = (db.prepare('SELECT COUNT(*) AS c FROM sites').get() as { c: number }).c;
   if (siteCount === 0) {
     console.log('No sites yet — use dogfood script or Owner UI after magic-link login.');
