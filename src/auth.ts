@@ -2,9 +2,11 @@ import type { Request, Response, NextFunction } from 'express';
 import { nanoid } from 'nanoid';
 import { db, nowIso, audit } from './db.js';
 import { hashToken, randomToken } from './crypto.js';
+import { getPublicBaseUrl } from './publicUrl.js';
 
 const OWNER_EMAIL = process.env.OWNER_EMAIL || 'bryan@barterandbuild.com';
-const BASE_URL = (process.env.PUBLIC_BASE_URL || process.env.BASE_URL || 'http://127.0.0.1:8787').replace(/\/$/, '');
+
+export { getPublicBaseUrl, getBaseUrl } from './publicUrl.js';
 
 export function ensureDefaultOwner(): { id: string; email: string } {
   let row = db.prepare('SELECT id, email FROM owners WHERE email = ?').get(OWNER_EMAIL) as
@@ -31,7 +33,7 @@ export function createOwnerMagicLink(): { token: string; url: string; expires_at
     `INSERT INTO magic_links (token_hash, purpose, payload, expires_at, created_at)
      VALUES (?, 'owner_login', ?, ?, ?)`,
   ).run(hashToken(token), JSON.stringify({ owner_id: owner.id }), expires, nowIso());
-  const url = `${BASE_URL}/auth/magic?token=${encodeURIComponent(token)}`;
+  const url = `${getPublicBaseUrl()}/auth/magic?token=${encodeURIComponent(token)}`;
   console.log('\n[ArtiFTP] Owner magic link (dev):\n  ' + url + '\n');
   return { token, url, expires_at: expires };
 }
@@ -67,7 +69,7 @@ export function createApproveMagicLink(requestId: string): { token: string; url:
     `INSERT INTO magic_links (token_hash, purpose, payload, expires_at, created_at)
      VALUES (?, 'approve', ?, ?, ?)`,
   ).run(hashToken(token), JSON.stringify({ request_id: requestId, token }), expires, nowIso());
-  const url = `${BASE_URL}/approve/${encodeURIComponent(token)}`;
+  const url = `${getPublicBaseUrl()}/approve/${encodeURIComponent(token)}`;
   console.log('\n[ArtiFTP] Approve magic link (dev):\n  ' + url + '\n');
   return { token, url };
 }
@@ -122,6 +124,3 @@ export function requireOwner(req: OwnerReq, res: Response, next: NextFunction): 
   next();
 }
 
-export function getBaseUrl(): string {
-  return BASE_URL;
-}
