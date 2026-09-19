@@ -1,16 +1,16 @@
 # ArtiFTP MVP — STATUS
 
-**Date:** Thu Sep 17, 2026 (PT)  
+**Date:** Sat Sep 19, 2026 (PT)  
 **Location:** `/workspace/agentftp/` (local interim path intentionally retained; Origin cloud repo blocked until Bryan creates a namespace)  
 **Brand/domain:** ArtiFTP · `artiftp.com` acquired 2026-09-17 · planned app URL `https://app.artiftp.com`
 
 ## What works
 
 - **API server** (`npm run dev` / `npm start`) on `http://127.0.0.1:8787`
-  - Owner magic-link auth (link printed to console; cookie session)
+  - Owner magic-link auth (link printed to console; emailed via Resend when `RESEND_API_KEY` is set; cookie session)
   - Sites CRUD with encrypted password (`ARTIFTP_SECRET`; legacy `AGENTFTP_SECRET` fallback supported)
   - Policy: `root_path`, `read` \| `read_write`, `max_ttl_sec`
-  - Access requests + HTML approve/deny pages (`/approve/:token`)
+  - Access requests + HTML approve/deny pages (`/approve/:token`); approve magic link emailed to the site owner
   - Sessions: opaque token, SHA-256 hash at rest, expiry, revoke / `end_session`
   - **Storage facade** (`src/fs/storage.ts`):
     - `host === mock.local` or `ARTIFTP_FORCE_MOCK=1` (legacy `AGENTFTP_FORCE_MOCK=1` also supported) → local mock jail under `data/mock-root/<siteId>/`
@@ -22,8 +22,30 @@
   - Owner: `GET /api/sites` includes `backend`; `GET /api/sites/:id/backend`; `POST /api/sites/:id/test` (connect + list root, no secrets logged)
 - **MCP stub** at `mcp/index.ts` — stdio MCP calling the HTTP API
 - **Owner UI** at `/ui/` — **fetch wired** to live owner routes (cookie magic-link auth); ink+emerald polish
-- **Path-jail tests** — `npm test` (local + remote POSIX)
+- **Tests** — `npm test` (path-jail + Resend mail helper with mocked key)
 - **Dogfood script** — `npm run dogfood` (API must be up)
+
+## Resend (magic-link email)
+
+Owner login (`createOwnerMagicLink`) and approve-access (`createApproveMagicLink`) still print the full URL to the server console. When `RESEND_API_KEY` is set they also POST to `https://api.resend.com/emails`.
+
+| Var | Default | Notes |
+|-----|---------|-------|
+| `RESEND_API_KEY` | *(unset)* | Required to send. **Do not commit.** Missing → warning + console-only (local/dev safe) |
+| `EMAIL_FROM` | `noreply@artiftp.com` | Also accepts `ArtiFTP <noreply@artiftp.com>` |
+| `OWNER_EMAIL` | `bryan@barterandbuild.com` | Login + approve recipients (or the owner email stored in DB) |
+
+Verify the `artiftp.com` domain in the Resend dashboard so `noreply@artiftp.com` is allowed. On boot the process logs `email from=… env_RESEND_API_KEY=set|missing` (never the key).
+
+```bash
+# Optional live smoke (uses your key; do not paste the key into chat/logs)
+curl -sS https://api.resend.com/emails \
+  -H "Authorization: Bearer $RESEND_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"from":"noreply@artiftp.com","to":["'"$OWNER_EMAIL"'"],"subject":"Your ArtiFTP login link","text":"https://app.artiftp.com/auth/magic?token=…"}'
+```
+
+Helper + mocked-key unit tests: `src/mail.ts`, `tests/mail.test.ts`.
 
 ## How Justice dogfoods
 

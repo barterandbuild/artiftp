@@ -64,7 +64,7 @@ agentRouter.get('/tools/list_sites', (_req, res) => {
 });
 
 /** request_access */
-agentRouter.post('/tools/request_access', (req, res) => {
+agentRouter.post('/tools/request_access', async (req, res) => {
   const body = req.body || {};
   const siteIdOrSlug = String(body.site_id || body.slug || '');
   if (!siteIdOrSlug) {
@@ -91,7 +91,8 @@ agentRouter.post('/tools/request_access', (req, res) => {
     `INSERT INTO access_requests (id, site_id, purpose, path_hint, mode, requested_ttl_sec, agent_label, status, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?)`,
   ).run(id, site.id, purpose, path_hint, mode, requested_ttl_sec, agent_label, nowIso());
-  const { url } = createApproveMagicLink(id);
+  const { url, emailed } = createApproveMagicLink(id);
+  await emailed;
   audit('agent', 'request_access', {
     site_id: site.id,
     request_id: id,
