@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ownerRouter } from './routes/owner.js';
 import { agentRouter } from './routes/agent.js';
+import { waitlistRouter } from './routes/waitlist.js';
 import { ensureDefaultOwner, createOwnerMagicLink } from './auth.js';
 import { logPublicBaseUrlOnStartup } from './publicUrl.js';
 import { logMailConfigOnStartup } from './mail.js';
@@ -22,6 +23,7 @@ app.get('/health', (_req, res) => {
   res.json({ ok: true, product: 'ArtiFTP', backend: getBackendMode() });
 });
 
+app.use(waitlistRouter);
 app.use(ownerRouter);
 app.use(agentRouter);
 

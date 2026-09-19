@@ -16,6 +16,12 @@
 | **Session** | Countdown + Revoke | `GET /api/sessions` · `POST /api/sessions/:id/revoke` |
 | **Audit** | Filter activity | `GET /api/audit` |
 
+## Public waitlist (landing page — no auth)
+
+`POST /api/waitlist` at `https://app.artiftp.com/api/waitlist`  
+JSON: `name`, `business` or `business_name`, `email`, `agent` (required); `host` or `host_type` (optional).  
+Emails hello@ via Resend. Not stored in SQLite. CORS: artiftp.com + www + localhost.
+
 ## Owner auth (gates the `/api/*` routes)
 - `POST /auth/request-link` → prints/emails magic link  
 - `GET /auth/magic?token=…` → sets owner cookie  
