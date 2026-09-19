@@ -58,9 +58,12 @@ The artiftp.com form can POST JSON to **`https://app.artiftp.com/api/waitlist`**
 | `business` or `business_name` | yes | string |
 | `email` | yes | basic `user@host.tld` check |
 | `agent` | yes | e.g. Grok, Cursor, Other |
+| `agent_other` | when `agent` is Other/other (case-insensitive) | non-empty string; ignored if agent is not Other |
+| `sites` or `site_count` | yes | enum-ish `1-2`, `3-6`, `7+` / `unlimited`, or a positive integer |
 | `host` or `host_type` | no | e.g. GoDaddy, cPanel, VPS, Other |
 
-Success: `{ ok: true }`. Validation errors: `400` `{ error: "…" }`.
+Success: `{ ok: true }`. Validation errors: `400` `{ error: "…" }`.  
+Email body to hello@ includes agent (and `agent_other` when present) and sites.
 
 ## How Justice dogfoods
 
