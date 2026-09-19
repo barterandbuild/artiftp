@@ -29,9 +29,17 @@ function sitePublic(row: Omit<SiteRow, 'cred_enc'> | SiteRow) {
 
 export const ownerRouter = Router();
 
-ownerRouter.post('/auth/request-link', (_req, res) => {
+ownerRouter.post('/auth/request-link', async (_req, res) => {
   const link = createOwnerMagicLink();
-  res.json({ ok: true, expires_at: link.expires_at, hint: 'magic link printed to server console' });
+  const emailed = await link.emailed;
+  res.json({
+    ok: true,
+    expires_at: link.expires_at,
+    emailed: emailed.ok,
+    hint: emailed.ok
+      ? 'magic link emailed; also printed to server console'
+      : 'magic link printed to server console',
+  });
 });
 
 ownerRouter.get('/auth/magic', (req, res) => {

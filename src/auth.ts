@@ -3,12 +3,16 @@ import { nanoid } from 'nanoid';
 import { db, nowIso, audit } from './db.js';
 import { hashToken, randomToken } from './crypto.js';
 import { getPublicBaseUrl } from './publicUrl.js';
+import { sendApproveAccessLink, sendOwnerLoginLink, type SendEmailResult } from './mail.js';
 
-const OWNER_EMAIL = process.env.OWNER_EMAIL || 'bryan@barterandbuild.com';
+export function getOwnerEmail(): string {
+  return process.env.OWNER_EMAIL?.trim() || 'bryan@barterandbuild.com';
+}
 
 export { getPublicBaseUrl, getBaseUrl } from './publicUrl.js';
 
 export function ensureDefaultOwner(): { id: string; email: string } {
+  const OWNER_EMAIL = getOwnerEmail();
   let row = db.prepare('SELECT id, email FROM owners WHERE email = ?').get(OWNER_EMAIL) as
     | { id: string; email: string }
     | undefined;
@@ -25,7 +29,25 @@ export function ensureDefaultOwner(): { id: string; email: string } {
   return row;
 }
 
-export function createOwnerMagicLink(): { token: string; url: string; expires_at: string } {
+function ownerEmailForRequest(requestId: string): string {
+  const row = db
+    .prepare(
+      `SELECT o.email AS email
+       FROM access_requests r
+       JOIN sites s ON s.id = r.site_id
+       JOIN owners o ON o.id = s.owner_id
+       WHERE r.id = ?`,
+    )
+    .get(requestId) as { email: string } | undefined;
+  return row?.email?.trim() || getOwnerEmail();
+}
+
+export function createOwnerMagicLink(): {
+  token: string;
+  url: string;
+  expires_at: string;
+  emailed: Promise<SendEmailResult>;
+} {
   const owner = ensureDefaultOwner();
   const token = randomToken(24);
   const expires = new Date(Date.now() + 15 * 60 * 1000).toISOString();
@@ -35,7 +57,8 @@ export function createOwnerMagicLink(): { token: string; url: string; expires_at
   ).run(hashToken(token), JSON.stringify({ owner_id: owner.id }), expires, nowIso());
   const url = `${getPublicBaseUrl()}/auth/magic?token=${encodeURIComponent(token)}`;
   console.log('\n[ArtiFTP] Owner magic link (dev):\n  ' + url + '\n');
-  return { token, url, expires_at: expires };
+  const emailed = sendOwnerLoginLink(owner.email, url);
+  return { token, url, expires_at: expires, emailed };
 }
 
 export function consumeOwnerMagicLink(token: string): string | null {
@@ -62,7 +85,11 @@ export function consumeOwnerMagicLink(token: string): string | null {
   return sessionToken;
 }
 
-export function createApproveMagicLink(requestId: string): { token: string; url: string } {
+export function createApproveMagicLink(requestId: string): {
+  token: string;
+  url: string;
+  emailed: Promise<SendEmailResult>;
+} {
   const token = randomToken(24);
   const expires = new Date(Date.now() + 60 * 60 * 1000).toISOString();
   db.prepare(
@@ -71,7 +98,8 @@ export function createApproveMagicLink(requestId: string): { token: string; url:
   ).run(hashToken(token), JSON.stringify({ request_id: requestId, token }), expires, nowIso());
   const url = `${getPublicBaseUrl()}/approve/${encodeURIComponent(token)}`;
   console.log('\n[ArtiFTP] Approve magic link (dev):\n  ' + url + '\n');
-  return { token, url };
+  const emailed = sendApproveAccessLink(ownerEmailForRequest(requestId), url);
+  return { token, url, emailed };
 }
 
 export function lookupApproveToken(token: string): string | null {
