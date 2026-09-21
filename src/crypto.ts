@@ -7,7 +7,11 @@ function secretKey(): Buffer {
   return crypto.createHash('sha256').update(raw).digest();
 }
 
-/** Encrypt a UTF-8 string; returns base64 `iv:tag:ciphertext`. */
+/**
+ * @deprecated Site passwords use `src/vault.ts` (`ARTIFTP_MASTER_KEY` envelope encryption).
+ * Do not use these helpers for new credential storage.
+ * Encrypt a UTF-8 string; returns base64 `iv:tag:ciphertext`.
+ */
 export function encrypt(plain: string): string {
   const iv = crypto.randomBytes(12);
   const cipher = crypto.createCipheriv(ALGO, secretKey(), iv);
@@ -16,6 +20,7 @@ export function encrypt(plain: string): string {
   return `${iv.toString('base64')}:${tag.toString('base64')}:${enc.toString('base64')}`;
 }
 
+/** @deprecated Site passwords use `src/vault.ts`. */
 export function decrypt(blob: string): string {
   const [ivB64, tagB64, dataB64] = blob.split(':');
   if (!ivB64 || !tagB64 || !dataB64) throw new Error('invalid ciphertext');

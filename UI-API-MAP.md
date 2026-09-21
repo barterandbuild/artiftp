@@ -44,7 +44,8 @@ Errors: `session_locked` · `denied` · `expired` · `path_forbidden` (403 on `.
 - `mock.local` or `ARTIFTP_FORCE_MOCK=1` (legacy `AGENTFTP_FORCE_MOCK=1` also supported) → local mock FS
 - port `22` → SFTP (`ssh2-sftp-client`)
 - otherwise → FTP/FTPS (`basic-ftp`; explicit FTPS then plain FTP)
-- Jail = site/session `root_path` (e.g. `/public_html`); relative paths only
+- Jail = site/session `root_path` (e.g. `/public_html`); relative paths only — **absolute paths rejected** at the security boundary
+- Site passwords: sealed with `ARTIFTP_MASTER_KEY` (vault); never returned on owner/agent APIs. Re-enter passwords after vault deploy.
 
 ## Gaps vs Webby UI
 1. ~~UI client-demo state~~ → **fetch wired** (Thu Sep 17, 2026 PT) with cookie auth.  

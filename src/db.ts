@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS sites (
   host TEXT NOT NULL,
   port INTEGER NOT NULL DEFAULT 22,
   sftp_user TEXT NOT NULL,
-  cred_enc TEXT NOT NULL,
+  cred_enc TEXT NOT NULL, -- JSON SealedCredential (vault); legacy ARTIFTP_SECRET blobs are invalid after deploy
   root_path TEXT NOT NULL DEFAULT '/samples',
   mode TEXT NOT NULL DEFAULT 'read_write',
   max_ttl_sec INTEGER NOT NULL DEFAULT 900,

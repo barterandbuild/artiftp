@@ -2,6 +2,9 @@ import { nanoid } from 'nanoid';
 import { db, nowIso, audit, type SessionRow, type AccessRequestRow, type SiteRow } from './db.js';
 import { hashToken, randomToken } from './crypto.js';
 
+// Sessions are opaque DB tokens. We do not keep a live SFTP client Map.
+// FTP/SFTP passwords are opened via the vault only in `remoteBackend` at connect time.
+
 export type SessionStatus = 'locked' | 'pending' | 'active' | 'expired' | 'denied' | 'revoked';
 
 export function sessionLifecycle(session: SessionRow | null, request?: AccessRequestRow | null): SessionStatus {

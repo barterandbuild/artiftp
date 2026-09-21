@@ -9,6 +9,15 @@ import { logPublicBaseUrlOnStartup } from './publicUrl.js';
 import { logMailConfigOnStartup } from './mail.js';
 import { db } from './db.js';
 import { getBackendMode } from './fs/storage.js';
+import { bootCredentialVault } from './vault.js';
+
+try {
+  bootCredentialVault();
+  console.log('[ArtiFTP] credential vault self-test ok');
+} catch (e) {
+  console.error('[ArtiFTP]', e instanceof Error ? e.message : e);
+  process.exit(1);
+}
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 8787);

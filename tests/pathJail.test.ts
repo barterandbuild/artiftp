@@ -1,7 +1,13 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
-import { PathForbiddenError, relativeFromRoot, resolveJailPath } from '../src/pathJail.js';
+import {
+  ABSOLUTE_PATH_REJECTED,
+  PathForbiddenError,
+  assertRelativeRequestPath,
+  relativeFromRoot,
+  resolveJailPath,
+} from '../src/pathJail.js';
 
 const root = path.resolve('/tmp/agentftp-jail-test/samples');
 
@@ -22,7 +28,12 @@ describe('resolveJailPath', () => {
   });
 
   it('rejects absolute paths', () => {
-    assert.throws(() => resolveJailPath(root, '/etc/passwd'), PathForbiddenError);
+    assert.throws(() => resolveJailPath(root, '/etc/passwd'), (err: unknown) => {
+      return err instanceof PathForbiddenError && err.message === ABSOLUTE_PATH_REJECTED;
+    });
+    assert.throws(() => resolveJailPath(root, '\\etc\\passwd'), PathForbiddenError);
+    assert.throws(() => resolveJailPath(root, 'C:\\Windows\\System32'), PathForbiddenError);
+    assert.throws(() => assertRelativeRequestPath('/absolute'), PathForbiddenError);
   });
 
   it('rejects null bytes', () => {
@@ -71,7 +82,11 @@ describe('resolveRemoteJailPath', () => {
   });
 
   it('rejects absolute paths', () => {
-    assert.throws(() => resolveRemoteJailPath(root, '/etc/passwd'), PathForbiddenError);
+    assert.throws(() => resolveRemoteJailPath(root, '/etc/passwd'), (err: unknown) => {
+      return err instanceof PathForbiddenError && err.message === ABSOLUTE_PATH_REJECTED;
+    });
+    assert.throws(() => resolveRemoteJailPath(root, '\\etc\\passwd'), PathForbiddenError);
+    assert.throws(() => resolveRemoteJailPath(root, 'C:/Windows'), PathForbiddenError);
   });
 
   it('remoteRelativeFromRoot returns posix', () => {

@@ -3,7 +3,7 @@ import { nanoid } from 'nanoid';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { db, nowIso, audit, type SiteRow, type AccessRequestRow, type SessionRow } from '../db.js';
-import { encrypt } from '../crypto.js';
+import { persistSealedCredential } from '../vault.js';
 import {
   createOwnerMagicLink,
   consumeOwnerMagicLink,
@@ -22,6 +22,7 @@ import { parseMaxTtlSec, UNTIL_REVOKE_SEC } from '../ttl.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SAMPLES = path.resolve(__dirname, '../../data/samples');
 
+/** Strip sealed credential blob — never return password or vault internals to the owner API. */
 function sitePublic(row: Omit<SiteRow, 'cred_enc'> | SiteRow) {
   const { cred_enc: _c, ...rest } = row as SiteRow;
   return { ...rest, backend: siteBackendKind(row as SiteRow) };
@@ -93,7 +94,7 @@ ownerRouter.post('/api/sites', requireOwner, (req: OwnerReq, res) => {
       host,
       port,
       sftp_user,
-      encrypt(password),
+      persistSealedCredential(password),
       root_path,
       mode,
       max_ttl_sec,
@@ -142,7 +143,7 @@ ownerRouter.patch('/api/sites/:id', requireOwner, (req: OwnerReq, res) => {
       : site.sftp_user;
   let cred_enc = site.cred_enc;
   if (body.password != null && String(body.password).length > 0) {
-    cred_enc = encrypt(String(body.password));
+    cred_enc = persistSealedCredential(String(body.password));
   }
   db.prepare(
     `UPDATE sites SET root_path = ?, mode = ?, max_ttl_sec = ?, display_name = ?, host = ?, port = ?, sftp_user = ?, cred_enc = ?, updated_at = ? WHERE id = ?`,
@@ -367,6 +368,8 @@ ownerRouter.post('/approve/:token', (req, res) => {
   markApproveTokenUsed(token);
 
   if (decision === 'approve') {
+    // Do not openCredential here. Plaintext is opened only inside remoteBackend
+    // immediately before the FTP/SFTP handshake (existing per-op connect, not a live session Map).
     const ttl = Math.min(request.requested_ttl_sec, site.max_ttl_sec);
     const { token: sessionToken, session } = mintSession(site, request, ttl);
     // Store session token temporarily for agent poll — also print for dogfood

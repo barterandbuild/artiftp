@@ -1,13 +1,14 @@
 import { db } from '../src/db.js';
-import { decrypt } from '../src/crypto.js';
+import { initVault, openPersistedCredential } from '../src/vault.js';
 import { Client as FtpClient } from 'basic-ftp';
 
 async function main() {
+  initVault();
   const site = db.prepare('SELECT * FROM sites WHERE id=?').get('gUygIu3YBPQAjnnucC0Ob') as {
     sftp_user: string;
     cred_enc: string;
   };
-  const password = decrypt(site.cred_enc);
+  const password = openPersistedCredential(site.cred_enc);
   const users = [site.sftp_user, `${site.sftp_user}@barterandbuild.com`, 'grokbot@barterandbuild.com'];
   for (const user of users) {
     const client = new FtpClient(15_000);

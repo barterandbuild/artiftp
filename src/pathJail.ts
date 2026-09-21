@@ -8,27 +8,38 @@ export class PathForbiddenError extends Error {
   }
 }
 
+export const ABSOLUTE_PATH_REJECTED =
+  'Absolute paths rejected; request paths relative to the jailed root.';
+
 /**
- * Resolve a user-supplied relative path under `rootAbs`.
- * Rejects absolute paths, `..` escapes, and null bytes.
- * Returns the absolute resolved path (must stay under root).
+ * Security-boundary check: request paths must be relative to the jail root.
+ * Absolute POSIX (`/…`), Windows drive (`C:/…`), and backslash-absolute paths
+ * are rejected — never reinterpreted as relative.
+ * Returns the trimmed, forward-slash-normalized relative path (`.` for empty).
  */
-export function resolveJailPath(rootAbs: string, relativePath: string): string {
+export function assertRelativeRequestPath(relativePath: string): string {
   if (relativePath == null || typeof relativePath !== 'string') {
     throw new PathForbiddenError('path must be a string');
   }
   if (relativePath.includes('\0')) {
     throw new PathForbiddenError('null byte in path');
   }
-
-  const root = path.resolve(rootAbs);
-  // Treat empty / "." as the root itself
-  const trimmed = relativePath.trim() === '' ? '.' : relativePath.trim();
-
-  // Reject absolute paths (POSIX and Windows-ish)
-  if (path.isAbsolute(trimmed) || /^[a-zA-Z]:[\\/]/.test(trimmed)) {
-    throw new PathForbiddenError('absolute paths not allowed');
+  const raw = relativePath.replace(/\\/g, '/').trim();
+  const trimmed = raw === '' ? '.' : raw;
+  if (trimmed !== '.' && (trimmed.startsWith('/') || /^[a-zA-Z]:\//.test(trimmed) || path.isAbsolute(trimmed))) {
+    throw new PathForbiddenError(ABSOLUTE_PATH_REJECTED);
   }
+  return trimmed;
+}
+
+/**
+ * Resolve a user-supplied relative path under `rootAbs`.
+ * Rejects absolute paths, `..` escapes, and null bytes.
+ * Returns the absolute resolved path (must stay under root).
+ */
+export function resolveJailPath(rootAbs: string, relativePath: string): string {
+  const trimmed = assertRelativeRequestPath(relativePath);
+  const root = path.resolve(rootAbs);
 
   // Normalize separators then join under root
   const joined = path.resolve(root, trimmed);
@@ -68,19 +79,8 @@ export function normalizeRemoteRoot(rootPath: string): string {
  * Returns the absolute remote POSIX path (must stay under root).
  */
 export function resolveRemoteJailPath(rootPath: string, relativePath: string): string {
-  if (relativePath == null || typeof relativePath !== 'string') {
-    throw new PathForbiddenError('path must be a string');
-  }
-  if (relativePath.includes('\0')) {
-    throw new PathForbiddenError('null byte in path');
-  }
-
+  const trimmed = assertRelativeRequestPath(relativePath);
   const root = normalizeRemoteRoot(rootPath);
-  const trimmed = relativePath.trim() === '' ? '.' : relativePath.trim().replace(/\\/g, '/');
-
-  if (trimmed.startsWith('/') || /^[a-zA-Z]:[\\/]/.test(trimmed)) {
-    throw new PathForbiddenError('absolute paths not allowed');
-  }
 
   const joined = path.posix.normalize(path.posix.join(root === '/' ? '/' : root, trimmed));
   if (root === '/') {

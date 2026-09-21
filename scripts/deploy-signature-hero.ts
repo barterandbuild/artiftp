@@ -1,5 +1,5 @@
 import { db } from '../src/db.js';
-import { decrypt } from '../src/crypto.js';
+import { initVault, openPersistedCredential } from '../src/vault.js';
 import SftpClient from 'ssh2-sftp-client';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -19,8 +19,9 @@ function walk(dir: string, base = dir): string[] {
 }
 
 async function main() {
+  initVault();
   const site = db.prepare('SELECT * FROM sites WHERE id=?').get(SITE_ID) as any;
-  const password = decrypt(site.cred_enc);
+  const password = openPersistedCredential(site.cred_enc);
   const sftp = new SftpClient();
   await sftp.connect({
     host: site.host,
