@@ -3,7 +3,7 @@ import { nanoid } from 'nanoid';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { db, nowIso, audit, type SiteRow, type AccessRequestRow, type SessionRow } from '../db.js';
-import { encrypt } from '../crypto.js';
+import { encodeSealedBlob, needsCredentialReentry, sealCredential, VaultError } from '../vault.js';
 import {
   createOwnerMagicLink,
   consumeOwnerMagicLink,
@@ -14,17 +14,21 @@ import {
   markApproveTokenUsed,
   getPublicBaseUrl,
 } from '../auth.js';
-import { mintSession, revokeSession, sessionLifecycle } from '../sessions.js';
+import { connectSecretForOwnerProbe, startApprovedSession, revokeSession, sessionLifecycle } from '../sessions.js';
 import { seedFromSamples, siteMockRoot } from '../fs/mockBackend.js';
-import { siteBackendKind, testSiteConnection } from '../fs/storage.js';
+import { isMockSite, siteBackendKind, testSiteConnection } from '../fs/storage.js';
 import { parseMaxTtlSec, UNTIL_REVOKE_SEC } from '../ttl.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SAMPLES = path.resolve(__dirname, '../../data/samples');
 
 function sitePublic(row: Omit<SiteRow, 'cred_enc'> | SiteRow) {
-  const { cred_enc: _c, ...rest } = row as SiteRow;
-  return { ...rest, backend: siteBackendKind(row as SiteRow) };
+  const { cred_enc, ...rest } = row as SiteRow;
+  return {
+    ...rest,
+    backend: siteBackendKind(row as SiteRow),
+    needs_password_reentry: cred_enc != null ? needsCredentialReentry(cred_enc) : false,
+  };
 }
 
 export const ownerRouter = Router();
@@ -63,8 +67,8 @@ ownerRouter.get('/api/me', requireOwner, (req: OwnerReq, res) => {
 
 ownerRouter.get('/api/sites', requireOwner, (req: OwnerReq, res) => {
   const sites = db
-    .prepare('SELECT id, display_name, slug, host, port, sftp_user, root_path, mode, max_ttl_sec, created_at, updated_at FROM sites WHERE owner_id = ? ORDER BY created_at DESC')
-    .all(req.ownerId!) as Omit<SiteRow, 'cred_enc'>[];
+    .prepare('SELECT * FROM sites WHERE owner_id = ? ORDER BY created_at DESC')
+    .all(req.ownerId!) as SiteRow[];
   res.json({ sites: sites.map((s) => sitePublic(s)) });
 });
 
@@ -93,7 +97,7 @@ ownerRouter.post('/api/sites', requireOwner, (req: OwnerReq, res) => {
       host,
       port,
       sftp_user,
-      encrypt(password),
+      encodeSealedBlob(sealCredential(password)),
       root_path,
       mode,
       max_ttl_sec,
@@ -110,11 +114,7 @@ ownerRouter.post('/api/sites', requireOwner, (req: OwnerReq, res) => {
     seedFromSamples(id, SAMPLES, sub);
   }
   audit('owner', 'site_create', { site_id: id, detail: { slug, root_path, mode } });
-  const site = db
-    .prepare(
-      'SELECT id, display_name, slug, host, port, sftp_user, root_path, mode, max_ttl_sec, created_at, updated_at FROM sites WHERE id = ?',
-    )
-    .get(id) as Omit<SiteRow, 'cred_enc'>;
+  const site = db.prepare('SELECT * FROM sites WHERE id = ?').get(id) as SiteRow;
   res.status(201).json({ site: sitePublic(site) });
 });
 
@@ -142,7 +142,13 @@ ownerRouter.patch('/api/sites/:id', requireOwner, (req: OwnerReq, res) => {
       : site.sftp_user;
   let cred_enc = site.cred_enc;
   if (body.password != null && String(body.password).length > 0) {
-    cred_enc = encrypt(String(body.password));
+    cred_enc = encodeSealedBlob(sealCredential(String(body.password)));
+  } else if (needsCredentialReentry(site.cred_enc)) {
+    res.status(409).json({
+      error: 'credential_reentry_required',
+      message: 'Re-enter the SFTP password — previous encryption format was retired.',
+    });
+    return;
   }
   db.prepare(
     `UPDATE sites SET root_path = ?, mode = ?, max_ttl_sec = ?, display_name = ?, host = ?, port = ?, sftp_user = ?, cred_enc = ?, updated_at = ? WHERE id = ?`,
@@ -151,11 +157,7 @@ ownerRouter.patch('/api/sites/:id', requireOwner, (req: OwnerReq, res) => {
     site_id: site.id,
     detail: { root_path, mode, max_ttl_sec, host, port, sftp_user, password_rotated: Boolean(body.password) },
   });
-  const updated = db
-    .prepare(
-      'SELECT id, display_name, slug, host, port, sftp_user, root_path, mode, max_ttl_sec, created_at, updated_at FROM sites WHERE id = ?',
-    )
-    .get(site.id) as Omit<SiteRow, 'cred_enc'>;
+  const updated = db.prepare('SELECT * FROM sites WHERE id = ?').get(site.id) as SiteRow;
   res.json({ site: sitePublic(updated) });
 });
 
@@ -195,7 +197,19 @@ ownerRouter.post('/api/sites/:id/test', requireOwner, async (req: OwnerReq, res)
     res.status(404).json({ error: 'not_found' });
     return;
   }
-  const result = await testSiteConnection(site);
+  let password: string | undefined;
+  if (!isMockSite(site)) {
+    try {
+      password = connectSecretForOwnerProbe(site);
+    } catch (e: unknown) {
+      if (e instanceof VaultError && e.code === 'credential_reentry_required') {
+        res.status(409).json({ error: e.code, message: e.message });
+        return;
+      }
+      throw e;
+    }
+  }
+  const result = await testSiteConnection(site, password);
   audit('owner', 'site_test', {
     site_id: site.id,
     detail: { ok: result.ok, backend: result.backend, latency_ms: result.latency_ms },
@@ -364,11 +378,35 @@ ownerRouter.post('/approve/:token', (req, res) => {
   }
   const site = db.prepare('SELECT * FROM sites WHERE id = ?').get(request.site_id) as SiteRow;
   const decision = String((req.body && (req.body.decision || req.body.action)) || 'deny');
-  markApproveTokenUsed(token);
 
   if (decision === 'approve') {
+    if (needsCredentialReentry(site.cred_enc)) {
+      res.status(409).send(
+        pageShell(
+          'Re-enter password',
+          `<div class="card"><p>This site still uses the retired <code>ARTIFTP_SECRET</code> blob. Edit the site in the <a href="/ui/">Owner UI</a> and save the SFTP password again, then retry Approve.</p></div>`,
+        ),
+      );
+      return;
+    }
+    markApproveTokenUsed(token);
     const ttl = Math.min(request.requested_ttl_sec, site.max_ttl_sec);
-    const { token: sessionToken, session } = mintSession(site, request, ttl);
+    let sessionToken: string;
+    let session: SessionRow;
+    try {
+      ({ token: sessionToken, session } = startApprovedSession(site, request, ttl));
+    } catch (e: unknown) {
+      const err = e as { code?: string; message?: string };
+      const reentry = err.code === 'credential_reentry_required';
+      res.status(reentry ? 409 : 500).send(
+        pageShell(
+          reentry ? 'Re-enter password' : 'Approve failed',
+          `<div class="card"><p>${escapeHtml(err.message || 'could not start session')}</p>
+           <p><a href="/ui/">Owner UI</a></p></div>`,
+        ),
+      );
+      return;
+    }
     // Store session token temporarily for agent poll — also print for dogfood
     console.log(
       `\n[ArtiFTP] Session approved. Token (dogfood — not for chat logs):\n  ${sessionToken}\n  expires ${session.expires_at}\n`,
@@ -396,6 +434,8 @@ ownerRouter.post('/approve/:token', (req, res) => {
     );
     return;
   }
+
+  markApproveTokenUsed(token);
 
   db.prepare(`UPDATE access_requests SET status = 'denied', resolved_at = ? WHERE id = ?`).run(
     nowIso(),

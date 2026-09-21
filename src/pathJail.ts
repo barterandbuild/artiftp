@@ -9,28 +9,46 @@ export class PathForbiddenError extends Error {
 }
 
 /**
+ * Shared rejection of absolute / drive / UNC paths.
+ * Never reinterpret `/etc/shadow` (or similar) as a name inside the jail — throw.
+ */
+export function assertRelativeAgentPath(userPath: string): string {
+  if (userPath == null || typeof userPath !== 'string') {
+    throw new PathForbiddenError('path must be a string');
+  }
+  if (userPath.includes('\0')) {
+    throw new PathForbiddenError('null byte in path');
+  }
+
+  const trimmed = userPath.trim() === '' ? '.' : userPath.trim();
+  const posixish = trimmed.replace(/\\/g, '/');
+
+  const absolute =
+    trimmed !== '.' &&
+    (path.isAbsolute(trimmed) ||
+      path.posix.isAbsolute(posixish) ||
+      path.win32.isAbsolute(trimmed) ||
+      path.win32.isAbsolute(posixish) ||
+      trimmed.startsWith('/') ||
+      trimmed.startsWith('\\') ||
+      posixish.startsWith('/') ||
+      /^[a-zA-Z]:/.test(trimmed));
+
+  if (absolute) {
+    throw new PathForbiddenError('absolute paths not allowed');
+  }
+  return trimmed;
+}
+
+/**
  * Resolve a user-supplied relative path under `rootAbs`.
  * Rejects absolute paths, `..` escapes, and null bytes.
  * Returns the absolute resolved path (must stay under root).
  */
 export function resolveJailPath(rootAbs: string, relativePath: string): string {
-  if (relativePath == null || typeof relativePath !== 'string') {
-    throw new PathForbiddenError('path must be a string');
-  }
-  if (relativePath.includes('\0')) {
-    throw new PathForbiddenError('null byte in path');
-  }
+  const trimmed = assertRelativeAgentPath(relativePath);
 
   const root = path.resolve(rootAbs);
-  // Treat empty / "." as the root itself
-  const trimmed = relativePath.trim() === '' ? '.' : relativePath.trim();
-
-  // Reject absolute paths (POSIX and Windows-ish)
-  if (path.isAbsolute(trimmed) || /^[a-zA-Z]:[\\/]/.test(trimmed)) {
-    throw new PathForbiddenError('absolute paths not allowed');
-  }
-
-  // Normalize separators then join under root
   const joined = path.resolve(root, trimmed);
   const rootWithSep = root.endsWith(path.sep) ? root : root + path.sep;
 
@@ -68,20 +86,9 @@ export function normalizeRemoteRoot(rootPath: string): string {
  * Returns the absolute remote POSIX path (must stay under root).
  */
 export function resolveRemoteJailPath(rootPath: string, relativePath: string): string {
-  if (relativePath == null || typeof relativePath !== 'string') {
-    throw new PathForbiddenError('path must be a string');
-  }
-  if (relativePath.includes('\0')) {
-    throw new PathForbiddenError('null byte in path');
-  }
+  const trimmed = assertRelativeAgentPath(relativePath).replace(/\\/g, '/');
 
   const root = normalizeRemoteRoot(rootPath);
-  const trimmed = relativePath.trim() === '' ? '.' : relativePath.trim().replace(/\\/g, '/');
-
-  if (trimmed.startsWith('/') || /^[a-zA-Z]:[\\/]/.test(trimmed)) {
-    throw new PathForbiddenError('absolute paths not allowed');
-  }
-
   const joined = path.posix.normalize(path.posix.join(root === '/' ? '/' : root, trimmed));
   if (root === '/') {
     // Jail is entire FTP chroot home — any absolute POSIX path under `/` is in-jail
@@ -113,4 +120,15 @@ export function remoteRelativeFromRoot(rootPath: string, absoluteRemote: string)
     throw new PathForbiddenError('path escapes jail root');
   }
   return abs.slice(root.length + 1) || '.';
+}
+
+export type JailKind = 'local' | 'remote';
+
+/**
+ * Canonical jail resolver (Bryan: `resolveJailed`).
+ * `local` = host filesystem (mock backend). `remote` = POSIX FTP/SFTP paths.
+ * Absolute user paths are rejected outright — never silently remapped inside the jail.
+ */
+export function resolveJailed(root: string, userPath: string, kind: JailKind = 'remote'): string {
+  return kind === 'local' ? resolveJailPath(root, userPath) : resolveRemoteJailPath(root, userPath);
 }

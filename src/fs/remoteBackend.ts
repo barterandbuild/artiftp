@@ -2,20 +2,22 @@ import { Readable, Writable } from 'node:stream';
 import path from 'node:path';
 import { Client as FtpClient, type FileInfo as FtpFileInfo } from 'basic-ftp';
 import SftpClient from 'ssh2-sftp-client';
-import { decrypt } from '../crypto.js';
 import type { SiteRow } from '../db.js';
 import {
   PathForbiddenError,
   normalizeRemoteRoot,
   remoteRelativeFromRoot,
-  resolveRemoteJailPath,
+  resolveJailed,
 } from '../pathJail.js';
 import type { ListedEntry } from './mockBackend.js';
 
 export type RemoteBackendKind = 'ftp' | 'sftp';
 
-function passwordFor(site: SiteRow): string {
-  return decrypt(site.cred_enc);
+function requirePassword(password: string | undefined): string {
+  if (password == null || password === '') {
+    throw Object.assign(new Error('session_locked'), { code: 'session_locked' });
+  }
+  return password;
 }
 
 function codeError(code: string, message?: string): Error {
@@ -42,9 +44,9 @@ export function remoteKindForSite(site: SiteRow): RemoteBackendKind {
 }
 
 /** Connect FTP/FTPS: prefer explicit FTPS, fall back to plain FTP (GoDaddy often needs one or the other). */
-async function connectFtp(site: SiteRow): Promise<FtpClient> {
+async function connectFtp(site: SiteRow, password: string): Promise<FtpClient> {
   const user = site.sftp_user;
-  const password = passwordFor(site);
+  password = requirePassword(password);
   const host = site.host;
   const port = Number(site.port) || 21;
   const secureOptions = { rejectUnauthorized: false };
@@ -73,9 +75,13 @@ async function connectFtp(site: SiteRow): Promise<FtpClient> {
   throw last instanceof Error ? last : new Error(String(last));
 }
 
-async function withFtp<T>(site: SiteRow, fn: (client: FtpClient, root: string) => Promise<T>): Promise<T> {
+async function withFtp<T>(
+  site: SiteRow,
+  password: string,
+  fn: (client: FtpClient, root: string) => Promise<T>,
+): Promise<T> {
   let root = normalizeRemoteRoot(site.root_path);
-  const client = await connectFtp(site);
+  const client = await connectFtp(site, password);
   try {
     // GoDaddy FTP is often already chrooted to public_html — `/public_html` then 550s.
     const candidates =
@@ -105,8 +111,13 @@ async function withFtp<T>(site: SiteRow, fn: (client: FtpClient, root: string) =
   }
 }
 
-async function withSftp<T>(site: SiteRow, fn: (sftp: SftpClient, root: string) => Promise<T>): Promise<T> {
+async function withSftp<T>(
+  site: SiteRow,
+  password: string,
+  fn: (sftp: SftpClient, root: string) => Promise<T>,
+): Promise<T> {
   const root = normalizeRemoteRoot(site.root_path);
+  const secret = requirePassword(password);
   const sftp = new SftpClient('artiftp', {
     error: () => {},
     end: () => {},
@@ -117,7 +128,7 @@ async function withSftp<T>(site: SiteRow, fn: (sftp: SftpClient, root: string) =
       host: site.host,
       port: Number(site.port) || 22,
       username: site.sftp_user,
-      password: passwordFor(site),
+      password: secret,
       readyTimeout: 30_000,
     });
     // Ensure jail root exists / is accessible
@@ -151,11 +162,12 @@ function ftpEntries(root: string, dirRemote: string, listing: FtpFileInfo[]): Li
     });
 }
 
-export async function listFiles(site: SiteRow, rel = '.'): Promise<ListedEntry[]> {
+export async function listFiles(site: SiteRow, rel = '.', password?: string): Promise<ListedEntry[]> {
   const kind = remoteKindForSite(site);
+  const secret = requirePassword(password);
   if (kind === 'sftp') {
-    return withSftp(site, async (sftp, root) => {
-      const target = resolveRemoteJailPath(root, rel);
+    return withSftp(site, secret, async (sftp, root) => {
+      const target = resolveJailed(root, rel, 'remote');
       const exists = await sftp.exists(target);
       if (!exists) throw codeError('not_found');
       if (exists !== 'd') throw codeError('not_a_directory');
@@ -174,8 +186,8 @@ export async function listFiles(site: SiteRow, rel = '.'): Promise<ListedEntry[]
     });
   }
 
-  return withFtp(site, async (client, root) => {
-    const target = resolveRemoteJailPath(root, rel);
+  return withFtp(site, secret, async (client, root) => {
+    const target = resolveJailed(root, rel, 'remote');
     try {
       const listing = await client.list(target);
       return ftpEntries(root, target, listing);
@@ -190,16 +202,18 @@ export async function uploadFile(
   relPath: string,
   content: Buffer | string,
   mode: 'read' | 'read_write',
+  password?: string,
 ): Promise<{ path: string; bytes: number }> {
   if (mode !== 'read_write') {
     throw codeError('mode_forbidden');
   }
   const buf = typeof content === 'string' ? Buffer.from(content, 'utf8') : content;
   const kind = remoteKindForSite(site);
+  const secret = requirePassword(password);
 
   if (kind === 'sftp') {
-    return withSftp(site, async (sftp, root) => {
-      const target = resolveRemoteJailPath(root, relPath);
+    return withSftp(site, secret, async (sftp, root) => {
+      const target = resolveJailed(root, relPath, 'remote');
       const parent = path.posix.dirname(target);
       if (parent !== root && !parent.startsWith(root + '/')) {
         throw new PathForbiddenError('parent escapes jail');
@@ -212,8 +226,8 @@ export async function uploadFile(
     });
   }
 
-  return withFtp(site, async (client, root) => {
-    const target = resolveRemoteJailPath(root, relPath);
+  return withFtp(site, secret, async (client, root) => {
+    const target = resolveJailed(root, relPath, 'remote');
     const parent = path.posix.dirname(target);
     if (parent !== root && !parent.startsWith(root + '/')) {
       throw new PathForbiddenError('parent escapes jail');
@@ -232,12 +246,14 @@ export async function uploadFile(
 export async function downloadFile(
   site: SiteRow,
   relPath: string,
+  password?: string,
 ): Promise<{ path: string; content: Buffer; bytes: number }> {
   const kind = remoteKindForSite(site);
+  const secret = requirePassword(password);
 
   if (kind === 'sftp') {
-    return withSftp(site, async (sftp, root) => {
-      const target = resolveRemoteJailPath(root, relPath);
+    return withSftp(site, secret, async (sftp, root) => {
+      const target = resolveJailed(root, relPath, 'remote');
       const exists = await sftp.exists(target);
       if (!exists || exists === 'd') throw codeError('not_found');
       const data = (await sftp.get(target)) as Buffer;
@@ -246,8 +262,8 @@ export async function downloadFile(
     });
   }
 
-  return withFtp(site, async (client, root) => {
-    const target = resolveRemoteJailPath(root, relPath);
+  return withFtp(site, secret, async (client, root) => {
+    const target = resolveJailed(root, relPath, 'remote');
     const chunks: Buffer[] = [];
     const writable = new Writable({
       write(chunk, _enc, cb) {
@@ -268,8 +284,9 @@ export async function downloadFile(
 /** Connect + list jail root. Does not log secrets. */
 export async function testConnection(
   site: SiteRow,
+  password?: string,
 ): Promise<{ ok: true; backend: RemoteBackendKind; entry_count: number }> {
   const backend = remoteKindForSite(site);
-  const entries = await listFiles(site, '.');
+  const entries = await listFiles(site, '.', password);
   return { ok: true, backend, entry_count: entries.length };
 }

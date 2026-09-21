@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { PathForbiddenError, relativeFromRoot, resolveJailPath } from '../pathJail.js';
+import { PathForbiddenError, relativeFromRoot, resolveJailed } from '../pathJail.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const MOCK_ROOT_BASE = path.resolve(__dirname, '../../data/mock-root');
@@ -22,7 +22,7 @@ export type ListedEntry = {
 export function listFiles(siteId: string, rootPath: string, rel = '.'): ListedEntry[] {
   const absRoot = path.resolve(siteMockRoot(siteId), rootPath.replace(/^\//, '') || '.');
   fs.mkdirSync(absRoot, { recursive: true });
-  const target = resolveJailPath(absRoot, rel);
+  const target = resolveJailed(absRoot, rel, 'local');
   if (!fs.existsSync(target)) {
     throw Object.assign(new Error('not_found'), { code: 'not_found' });
   }
@@ -54,7 +54,7 @@ export function uploadFile(
   }
   const absRoot = path.resolve(siteMockRoot(siteId), rootPath.replace(/^\//, '') || '.');
   fs.mkdirSync(absRoot, { recursive: true });
-  const target = resolveJailPath(absRoot, relPath);
+  const target = resolveJailed(absRoot, relPath, 'local');
   // Ensure parent stays in jail
   const parent = path.dirname(target);
   const rootWithSep = absRoot.endsWith(path.sep) ? absRoot : absRoot + path.sep;
@@ -74,7 +74,7 @@ export function downloadFile(
 ): { path: string; content: Buffer; bytes: number } {
   const absRoot = path.resolve(siteMockRoot(siteId), rootPath.replace(/^\//, '') || '.');
   fs.mkdirSync(absRoot, { recursive: true });
-  const target = resolveJailPath(absRoot, relPath);
+  const target = resolveJailed(absRoot, relPath, 'local');
   if (!fs.existsSync(target) || !fs.statSync(target).isFile()) {
     throw Object.assign(new Error('not_found'), { code: 'not_found' });
   }
