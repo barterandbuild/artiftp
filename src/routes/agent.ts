@@ -6,10 +6,12 @@ import {
   assertActiveSession,
   endSessionByToken,
   getSessionByToken,
+  liveConnectSecret,
   sessionLifecycle,
 } from '../sessions.js';
 import { listFiles, uploadFile, downloadFile } from '../fs/storage.js';
 import { PathForbiddenError } from '../pathJail.js';
+import { VaultError } from '../vault.js';
 import { parseRequestedTtlSec } from '../ttl.js';
 
 export const agentRouter = Router();
@@ -160,7 +162,8 @@ agentRouter.get('/tools/list_files', requireSession, async (req: AuthedReq, res)
     return;
   }
   try {
-    const entries = await listFiles(site, rel, session.root_path);
+    const password = liveConnectSecret(session);
+    const entries = await listFiles(site, rel, session.root_path, password);
     audit('agent', 'list_files', {
       site_id: session.site_id,
       session_id: session.id,
@@ -200,7 +203,8 @@ agentRouter.post('/tools/upload_file', requireSession, async (req: AuthedReq, re
     return;
   }
   try {
-    const result = await uploadFile(site, relPath, content, session.mode, session.root_path);
+    const password = liveConnectSecret(session);
+    const result = await uploadFile(site, relPath, content, session.mode, session.root_path, password);
     audit('agent', 'upload_file', {
       site_id: session.site_id,
       session_id: session.id,
@@ -225,7 +229,8 @@ agentRouter.get('/tools/download_file', requireSession, async (req: AuthedReq, r
     return;
   }
   try {
-    const result = await downloadFile(site, relPath, session.root_path);
+    const password = liveConnectSecret(session);
+    const result = await downloadFile(site, relPath, session.root_path, password);
     audit('agent', 'download_file', {
       site_id: session.site_id,
       session_id: session.id,
@@ -254,9 +259,17 @@ function toolError(res: Response, e: unknown): void {
     res.status(403).json({ error: 'path_forbidden', message: e.message });
     return;
   }
+  if (e instanceof VaultError && e.code === 'credential_reentry_required') {
+    res.status(409).json({ error: e.code, message: e.message });
+    return;
+  }
   const err = e as { code?: string; message?: string };
   if (err.code === 'mode_forbidden') {
     res.status(403).json({ error: 'mode_forbidden' });
+    return;
+  }
+  if (err.code === 'session_locked' || err.code === 'revoked' || err.code === 'expired') {
+    res.status((err as { status?: number }).status || 401).json({ error: err.code });
     return;
   }
   if (err.code === 'not_found') {

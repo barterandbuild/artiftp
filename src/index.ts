@@ -9,11 +9,23 @@ import { logPublicBaseUrlOnStartup } from './publicUrl.js';
 import { logMailConfigOnStartup } from './mail.js';
 import { db } from './db.js';
 import { getBackendMode } from './fs/storage.js';
+import { initVault, verifyRoundTrip } from './vault.js';
+import { startSessionReaper } from './sessions.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 8787);
 
+try {
+  initVault();
+  verifyRoundTrip();
+} catch (e: unknown) {
+  const message = e instanceof Error ? e.message : String(e);
+  console.error('[ArtiFTP] vault failed — refusing to start:', message);
+  process.exit(1);
+}
+
 ensureDefaultOwner();
+startSessionReaper();
 
 const app = express();
 app.use(express.json({ limit: '6mb' }));

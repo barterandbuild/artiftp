@@ -8,7 +8,7 @@
 
 - **API server** (`npm run dev` / `npm start`) on `http://127.0.0.1:8787`
   - Owner magic-link auth (link printed to console; emailed via Resend on explicit UI/API request when `RESEND_API_KEY` is set; cookie session). Boot only prints — it does not email.
-  - Sites CRUD with encrypted password (`ARTIFTP_SECRET`; legacy `AGENTFTP_SECRET` fallback supported)
+  - Sites CRUD with envelope-encrypted passwords (`ARTIFTP_MASTER_KEY`; old `ARTIFTP_SECRET` blobs require re-entry)
   - Policy: `root_path`, `read` \| `read_write`, `max_ttl_sec`
   - Access requests + HTML approve/deny pages (`/approve/:token`); approve magic link emailed to the site owner
   - Sessions: opaque token, SHA-256 hash at rest, expiry, revoke / `end_session`
@@ -83,7 +83,7 @@ Email body to hello@ includes agent (and `agent_other` when present) and sites.
 - **Origin git:** no cloud namespace yet — stay on `/workspace/agentftp/`; this folder name and `data/agentftp.db` filename remain intentionally unchanged to avoid breaking the running server.
 - GoDaddy may need FTPS vs plain FTP — client tries explicit FTPS first, then plain; self-signed TLS accepted for FTPS
 - Push notifications / PWA — out of scope
-- Do not commit real GoDaddy creds; passwords stay encrypted at rest (`cred_enc`)
+- Do not commit real GoDaddy creds; passwords stay envelope-encrypted at rest (`cred_enc`). Set `ARTIFTP_MASTER_KEY` on Railway; re-enter site passwords after this upgrade.
 
 ## Verify
 

@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
-import { PathForbiddenError, relativeFromRoot, resolveJailPath } from '../src/pathJail.js';
+import { PathForbiddenError, relativeFromRoot, resolveJailPath, resolveJailed } from '../src/pathJail.js';
 
 const root = path.resolve('/tmp/agentftp-jail-test/samples');
 
@@ -23,6 +23,23 @@ describe('resolveJailPath', () => {
 
   it('rejects absolute paths', () => {
     assert.throws(() => resolveJailPath(root, '/etc/passwd'), PathForbiddenError);
+  });
+
+  it('rejects absolute paths outright and does not remap them inside the jail', () => {
+    for (const p of ['/etc/shadow', '/etc/passwd', '//etc/shadow', '\\etc\\shadow']) {
+      assert.throws(() => resolveJailPath(root, p), (err: unknown) => {
+        assert.ok(err instanceof PathForbiddenError);
+        assert.match((err as Error).message, /absolute/);
+        return true;
+      });
+      assert.throws(() => resolveJailed(root, p, 'local'), PathForbiddenError);
+    }
+    assert.notEqual(path.join(root, 'etc/shadow'), '/etc/shadow');
+  });
+
+  it('rejects Windows-style absolute paths', () => {
+    assert.throws(() => resolveJailPath(root, 'C:\\Windows\\System32\\config'), PathForbiddenError);
+    assert.throws(() => resolveJailPath(root, 'C:/Windows/System32'), PathForbiddenError);
   });
 
   it('rejects null bytes', () => {
@@ -68,10 +85,22 @@ describe('resolveRemoteJailPath', () => {
   it('rejects .. escape', () => {
     assert.throws(() => resolveRemoteJailPath(root, '../etc/passwd'), PathForbiddenError);
     assert.throws(() => resolveRemoteJailPath(root, 'a/../../x'), PathForbiddenError);
+    assert.throws(() => resolveJailed(root, 'foo/../../../../etc/shadow', 'remote'), PathForbiddenError);
   });
 
   it('rejects absolute paths', () => {
     assert.throws(() => resolveRemoteJailPath(root, '/etc/passwd'), PathForbiddenError);
+  });
+
+  it('rejects absolute paths outright and does not remap them inside the jail', () => {
+    for (const p of ['/etc/shadow', '/etc/passwd', '//etc/shadow']) {
+      assert.throws(() => resolveRemoteJailPath(root, p), (err: unknown) => {
+        assert.ok(err instanceof PathForbiddenError);
+        assert.match((err as Error).message, /absolute/);
+        return true;
+      });
+      assert.throws(() => resolveJailed(root, p, 'remote'), PathForbiddenError);
+    }
   });
 
   it('remoteRelativeFromRoot returns posix', () => {

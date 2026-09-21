@@ -1,7 +1,9 @@
+import path from 'node:path';
 import { db, type SiteRow } from '../db.js';
 import * as mock from './mockBackend.js';
 import * as remote from './remoteBackend.js';
 import type { ListedEntry } from './mockBackend.js';
+import { resolveJailed } from '../pathJail.js';
 
 export type BackendKind = 'mock' | 'ftp' | 'sftp';
 
@@ -32,16 +34,28 @@ function withRoot(site: SiteRow, rootPath?: string): SiteRow {
   return { ...site, root_path: rootPath };
 }
 
+/** Every agent file path is jailed before mock/SFTP/FTP is touched. */
+function assertJailed(site: SiteRow, rel: string): void {
+  if (isMockSite(site)) {
+    const absRoot = path.resolve(mock.siteMockRoot(site.id), site.root_path.replace(/^\//, '') || '.');
+    resolveJailed(absRoot, rel, 'local');
+    return;
+  }
+  resolveJailed(site.root_path, rel, 'remote');
+}
+
 export async function listFiles(
   site: SiteRow,
   rel = '.',
   rootPath?: string,
+  password?: string,
 ): Promise<ListedEntry[]> {
   const s = withRoot(site, rootPath);
+  assertJailed(s, rel);
   if (isMockSite(s)) {
     return mock.listFiles(s.id, s.root_path, rel);
   }
-  return remote.listFiles(s, rel);
+  return remote.listFiles(s, rel, password);
 }
 
 export async function uploadFile(
@@ -50,37 +64,43 @@ export async function uploadFile(
   content: Buffer | string,
   mode: 'read' | 'read_write',
   rootPath?: string,
+  password?: string,
 ): Promise<{ path: string; bytes: number }> {
   const s = withRoot(site, rootPath);
+  assertJailed(s, relPath);
   if (isMockSite(s)) {
     return mock.uploadFile(s.id, s.root_path, relPath, content, mode);
   }
-  return remote.uploadFile(s, relPath, content, mode);
+  return remote.uploadFile(s, relPath, content, mode, password);
 }
 
 export async function downloadFile(
   site: SiteRow,
   relPath: string,
   rootPath?: string,
+  password?: string,
 ): Promise<{ path: string; content: Buffer; bytes: number }> {
   const s = withRoot(site, rootPath);
+  assertJailed(s, relPath);
   if (isMockSite(s)) {
     return mock.downloadFile(s.id, s.root_path, relPath);
   }
-  return remote.downloadFile(s, relPath);
+  return remote.downloadFile(s, relPath, password);
 }
 
 export async function testSiteConnection(
   site: SiteRow,
+  password?: string,
 ): Promise<{ ok: boolean; backend: BackendKind; latency_ms: number; entry_count?: number; error?: string }> {
   const backend = siteBackendKind(site);
   const started = Date.now();
   try {
     if (isMockSite(site)) {
+      assertJailed(site, '.');
       const entries = mock.listFiles(site.id, site.root_path, '.');
       return { ok: true, backend, latency_ms: Date.now() - started, entry_count: entries.length };
     }
-    const result = await remote.testConnection(site);
+    const result = await remote.testConnection(site, password);
     return {
       ok: true,
       backend: result.backend,

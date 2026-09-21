@@ -38,7 +38,7 @@ Emails hello@ via Resend. Not stored in SQLite. CORS: artiftp.com + www + localh
 | download_file | `GET /tools/download_file` |
 | end_session | `POST /tools/end_session` |
 
-Errors: `session_locked` · `denied` · `expired` · `path_forbidden` (403 on `../`) · `mode_forbidden` · `not_found`
+Errors: `session_locked` · `denied` · `expired` · `path_forbidden` (403 on `../` and absolute paths) · `mode_forbidden` · `not_found` · `credential_reentry_required` (409 — re-save site password)
 
 ## Storage backends
 - `mock.local` or `ARTIFTP_FORCE_MOCK=1` (legacy `AGENTFTP_FORCE_MOCK=1` also supported) → local mock FS

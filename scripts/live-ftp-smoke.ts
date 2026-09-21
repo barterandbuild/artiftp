@@ -2,18 +2,18 @@ import { db } from '../src/db.js';
 import type { SiteRow } from '../src/db.js';
 import { Client as FtpClient } from 'basic-ftp';
 import SftpClient from 'ssh2-sftp-client';
-import { decrypt } from '../src/crypto.js';
+import { initVault, openCredential } from '../src/vault.js';
 
 const ID = 'gUygIu3YBPQAjnnucC0Ob';
 
-async function tryPlainFtp(site: SiteRow, port = 21) {
+async function tryPlainFtp(site: SiteRow, password: string, port = 21) {
   const client = new FtpClient(25_000);
   try {
     await client.access({
       host: site.host,
       port,
       user: site.sftp_user,
-      password: decrypt(site.cred_enc),
+      password,
       secure: false,
     });
     const pwd = await client.pwd();
@@ -24,14 +24,14 @@ async function tryPlainFtp(site: SiteRow, port = 21) {
   }
 }
 
-async function tryFtps(site: SiteRow, port = 21) {
+async function tryFtps(site: SiteRow, password: string, port = 21) {
   const client = new FtpClient(25_000);
   try {
     await client.access({
       host: site.host,
       port,
       user: site.sftp_user,
-      password: decrypt(site.cred_enc),
+      password,
       secure: true,
       secureOptions: { rejectUnauthorized: false },
     });
@@ -43,14 +43,14 @@ async function tryFtps(site: SiteRow, port = 21) {
   }
 }
 
-async function trySftp(site: SiteRow) {
+async function trySftp(site: SiteRow, password: string) {
   const sftp = new SftpClient();
   try {
     await sftp.connect({
       host: site.host,
       port: 22,
       username: site.sftp_user,
-      password: decrypt(site.cred_enc),
+      password,
       readyTimeout: 20_000,
     });
     const list = await sftp.list('.');
@@ -65,7 +65,9 @@ async function trySftp(site: SiteRow) {
 }
 
 async function main() {
+  initVault();
   const site = db.prepare('SELECT * FROM sites WHERE id = ?').get(ID) as SiteRow;
+  const password = openCredential(site.cred_enc);
   console.log('site', {
     name: site.display_name,
     host: site.host,
@@ -74,9 +76,9 @@ async function main() {
     root: site.root_path,
   });
   for (const fn of [
-    () => tryPlainFtp(site, 21),
-    () => tryFtps(site, 21),
-    () => trySftp(site),
+    () => tryPlainFtp(site, password, 21),
+    () => tryFtps(site, password, 21),
+    () => trySftp(site, password),
   ]) {
     const name = fn.toString().includes('Plain') ? 'plain21' : fn.toString().includes('Ftps') ? 'ftps21' : 'sftp22';
     try {
