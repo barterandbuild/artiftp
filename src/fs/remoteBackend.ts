@@ -2,7 +2,7 @@ import { Readable, Writable } from 'node:stream';
 import path from 'node:path';
 import { Client as FtpClient, type FileInfo as FtpFileInfo } from 'basic-ftp';
 import SftpClient from 'ssh2-sftp-client';
-import { decrypt } from '../crypto.js';
+import { openPersistedCredential } from '../vault.js';
 import type { SiteRow } from '../db.js';
 import {
   PathForbiddenError,
@@ -14,8 +14,12 @@ import type { ListedEntry } from './mockBackend.js';
 
 export type RemoteBackendKind = 'ftp' | 'sftp';
 
-function passwordFor(site: SiteRow): string {
-  return decrypt(site.cred_enc);
+/**
+ * Open the site password immediately before an FTP/SFTP handshake.
+ * Plaintext must not leave this connect path (no logs, no API payloads, no session map).
+ */
+function passwordForConnect(site: SiteRow): string {
+  return openPersistedCredential(site.cred_enc);
 }
 
 function codeError(code: string, message?: string): Error {
@@ -44,7 +48,7 @@ export function remoteKindForSite(site: SiteRow): RemoteBackendKind {
 /** Connect FTP/FTPS: prefer explicit FTPS, fall back to plain FTP (GoDaddy often needs one or the other). */
 async function connectFtp(site: SiteRow): Promise<FtpClient> {
   const user = site.sftp_user;
-  const password = passwordFor(site);
+  const password = passwordForConnect(site);
   const host = site.host;
   const port = Number(site.port) || 21;
   const secureOptions = { rejectUnauthorized: false };
@@ -117,7 +121,7 @@ async function withSftp<T>(site: SiteRow, fn: (sftp: SftpClient, root: string) =
       host: site.host,
       port: Number(site.port) || 22,
       username: site.sftp_user,
-      password: passwordFor(site),
+      password: passwordForConnect(site),
       readyTimeout: 30_000,
     });
     // Ensure jail root exists / is accessible

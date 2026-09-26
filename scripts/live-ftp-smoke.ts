@@ -2,7 +2,7 @@ import { db } from '../src/db.js';
 import type { SiteRow } from '../src/db.js';
 import { Client as FtpClient } from 'basic-ftp';
 import SftpClient from 'ssh2-sftp-client';
-import { decrypt } from '../src/crypto.js';
+import { initVault, openPersistedCredential } from '../src/vault.js';
 
 const ID = 'gUygIu3YBPQAjnnucC0Ob';
 
@@ -13,7 +13,7 @@ async function tryPlainFtp(site: SiteRow, port = 21) {
       host: site.host,
       port,
       user: site.sftp_user,
-      password: decrypt(site.cred_enc),
+      password: openPersistedCredential(site.cred_enc),
       secure: false,
     });
     const pwd = await client.pwd();
@@ -31,7 +31,7 @@ async function tryFtps(site: SiteRow, port = 21) {
       host: site.host,
       port,
       user: site.sftp_user,
-      password: decrypt(site.cred_enc),
+      password: openPersistedCredential(site.cred_enc),
       secure: true,
       secureOptions: { rejectUnauthorized: false },
     });
@@ -50,7 +50,7 @@ async function trySftp(site: SiteRow) {
       host: site.host,
       port: 22,
       username: site.sftp_user,
-      password: decrypt(site.cred_enc),
+      password: openPersistedCredential(site.cred_enc),
       readyTimeout: 20_000,
     });
     const list = await sftp.list('.');
@@ -65,6 +65,7 @@ async function trySftp(site: SiteRow) {
 }
 
 async function main() {
+  initVault();
   const site = db.prepare('SELECT * FROM sites WHERE id = ?').get(ID) as SiteRow;
   console.log('site', {
     name: site.display_name,

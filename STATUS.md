@@ -1,6 +1,6 @@
 # ArtiFTP MVP — STATUS
 
-**Date:** Sat Sep 19, 2026 (PT)  
+**Date:** Mon Sep 21, 2026 (PT)  
 **Location:** `/workspace/agentftp/` (local interim path intentionally retained; Origin cloud repo blocked until Bryan creates a namespace)  
 **Brand/domain:** ArtiFTP · `artiftp.com` acquired 2026-09-17 · planned app URL `https://app.artiftp.com`
 
@@ -8,7 +8,7 @@
 
 - **API server** (`npm run dev` / `npm start`) on `http://127.0.0.1:8787`
   - Owner magic-link auth (link printed to console; emailed via Resend on explicit UI/API request when `RESEND_API_KEY` is set; cookie session). Boot only prints — it does not email.
-  - Sites CRUD with encrypted password (`ARTIFTP_SECRET`; legacy `AGENTFTP_SECRET` fallback supported)
+  - Sites CRUD with **vault-sealed** passwords (`ARTIFTP_MASTER_KEY` envelope encryption; AES-256-GCM per-site data keys). Owner/agent APIs never return passwords or sealed internals.
   - Policy: `root_path`, `read` \| `read_write`, `max_ttl_sec`
   - Access requests + HTML approve/deny pages (`/approve/:token`); approve magic link emailed to the site owner
   - Sessions: opaque token, SHA-256 hash at rest, expiry, revoke / `end_session`
@@ -16,15 +16,34 @@
     - `host === mock.local` or `ARTIFTP_FORCE_MOCK=1` (legacy `AGENTFTP_FORCE_MOCK=1` also supported) → local mock jail under `data/mock-root/<siteId>/`
     - else **FTP/FTPS** via `basic-ftp` (port ≠ 22; tries explicit FTPS then plain FTP)
     - else **SFTP** via `ssh2-sftp-client` (port 22)
-  - Path jail for local + remote POSIX paths (`..` / absolute rejected); jail root = site/session `root_path`
+  - Path jail for local + remote POSIX paths (`..` / **absolute rejected at the security boundary**, never reinterpreted); jail root = site/session `root_path`
   - Audit log in SQLite
   - Tool endpoints: `list_sites`, `request_access`, `session_status`, `list_files`, `upload_file`, `download_file`, `end_session`
   - Owner: `GET /api/sites` includes `backend`; `GET /api/sites/:id/backend`; `POST /api/sites/:id/test` (connect + list root, no secrets logged)
   - **Public waitlist** `POST /api/waitlist` — landing form emails hello@ via Resend (not stored in SQLite; Railway disk is ephemeral)
 - **MCP stub** at `mcp/index.ts` — stdio MCP calling the HTTP API
 - **Owner UI** at `/ui/` — **fetch wired** to live owner routes (cookie magic-link auth); ink+emerald polish
-- **Tests** — `npm test` (path-jail + Resend mail helper + waitlist validation with mocked send)
+- **Tests** — `npm test` (path-jail + vault seal/open/tamper/wrong-key + Resend mail helper + waitlist validation with mocked send)
 - **Dogfood script** — `npm run dogfood` (API must be up)
+
+## Credential vault (`ARTIFTP_MASTER_KEY`)
+
+Site passwords are envelope-encrypted in `src/vault.ts` and stored as JSON `SealedCredential` in `sites.cred_enc`. The master key lives **only** in env — never in git, logs, or API responses.
+
+| Var | Required | Notes |
+|-----|----------|-------|
+| `ARTIFTP_MASTER_KEY` | **yes to boot** | 32-byte value, base64. **Do not commit.** Boot calls `initVault()` then `verifyRoundTrip()`; failure refuses to start. Production-like env (`PORT` or `RAILWAY_ENVIRONMENT` set, including Railway) is fail-closed. Local/dev has **no baked-in default key** — generate one. Tests inject a documented test-only key in `tests/vault.test.ts` only. |
+
+```bash
+# Generate a master key (print once, paste into Railway / local .env, never commit)
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+```
+
+Railway: set `ARTIFTP_MASTER_KEY` on the service (same place as `PUBLIC_BASE_URL` / `RESEND_API_KEY`). `ARTIFTP_SECRET` is **not** used for site passwords anymore.
+
+**Migration:** existing sites must **re-enter passwords** after deploy. Old `ARTIFTP_SECRET` `iv:tag:cipher` blobs cannot be opened by the vault. Connect host → edit site → paste password again → Test host.
+
+Approve still mints an opaque session token only. `openCredential` runs inside `remoteBackend` immediately before the FTP/SFTP handshake (existing per-op connect; no parallel live-client session Map).
 
 ## Resend (magic-link email)
 
@@ -67,7 +86,7 @@ Email body to hello@ includes agent (and `agent_other` when present) and sites.
 
 ## How Justice dogfoods
 
-1. `cd /workspace/agentftp && npm install && npm run dev`
+1. Generate `ARTIFTP_MASTER_KEY` (never commit) and `cd /workspace/agentftp && npm install && npm run dev`
 2. Other terminal: `npm run dogfood`  
    Or: create site in UI → `request_access` → open printed approve URL → Approve → use `session_token` from `session_status` → list/upload under site `root_path` → revoke → confirm upload fails.
 3. Real host: set site host/port/user/password in Owner UI (never commit passwords). Confirm with `POST /api/sites/:id/test`. Approve a session, then `GET /tools/list_files` with Bearer token.
@@ -83,14 +102,17 @@ Email body to hello@ includes agent (and `agent_other` when present) and sites.
 - **Origin git:** no cloud namespace yet — stay on `/workspace/agentftp/`; this folder name and `data/agentftp.db` filename remain intentionally unchanged to avoid breaking the running server.
 - GoDaddy may need FTPS vs plain FTP — client tries explicit FTPS first, then plain; self-signed TLS accepted for FTPS
 - Push notifications / PWA — out of scope
-- Do not commit real GoDaddy creds; passwords stay encrypted at rest (`cred_enc`)
+- Do not commit real GoDaddy creds or `ARTIFTP_MASTER_KEY`; passwords stay sealed at rest (`cred_enc` JSON). Re-enter site passwords after this vault deploy.
 
 ## Verify
 
 ```bash
-cd /workspace/agentftp && npm install && npm test && npm run dev
+cd /workspace/agentftp && npm install
+export ARTIFTP_MASTER_KEY="$(node -e "console.log(require('crypto').randomBytes(32).toString('base64'))")"
+npm test && npx tsc --noEmit && npm run dev
 # then: npm run dogfood
 # owner (cookie): POST /api/sites/:id/test
+# After vault deploy: re-enter each site password in Connect host
 ```
 
 ## UI ↔ API

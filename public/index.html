@@ -1948,7 +1948,7 @@
         }
         if (hint) {
           hint.textContent = editing
-            ? "Leave blank to keep the current password. New values are encrypted at rest."
+            ? "Leave blank to keep the current password. New values are sealed in the server vault (never logged)."
             : "Paste password or PEM key material. Never shown to agents or in chat.";
         }
         if (editFields) editFields.classList.toggle("hidden", !editing);
